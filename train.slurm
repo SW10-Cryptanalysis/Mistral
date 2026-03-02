@@ -10,25 +10,8 @@
 
 set -e
 
-# 1. Environment Setup
+# Load your environment here (e.g., conda activate cipher_env)
 export HF_HUB_ENABLE_HF_TRANSFER=1
-export PATH="$HOME/.local/bin:$PATH"
 
-# 2. Synchronize Dependencies
-# We use 'uv sync' which reads your pyproject.toml. 
-# It will automatically install the Flash Attention wheel from the URL 
-# if you added it to your [project.dependencies] as discussed.
-echo "Checking and syncing dependencies..."
-uv sync
-
-# 3. Validation Check
-# This runs a quick check to make sure the Flash Attention wheel is 
-# actually visible to the Python interpreter before starting the heavy job.
-uv run python -c "import flash_attn; print(f'Flash Attention {flash_attn.__version__} is ready.')"
-
-# 4. Distributed Training
-# --nproc_per_node=4 because you requested 4 L4 GPUs.
-echo "Starting Distributed Training on 4 GPUs..."
-uv run torchrun --nproc_per_node=4 src/train.py
-
-echo "Job finished at $(date)"
+# Distribute across 4 GPUs
+torchrun --nproc_per_node=4 src/train.py

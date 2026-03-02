@@ -1,74 +1,71 @@
 import os
 import torch
 from datasets import load_from_disk
-from torch.utils.data import Dataset
+from model import get_model
 from transformers import Trainer, TrainingArguments, DataCollatorForLanguageModeling
 from config import cfg
-from model import get_mistral_model
 
-class CipherDataset(Dataset):
-    def __init__(self, directory_path):
-        self.dataset = load_from_disk(str(directory_path))
-        self.sep_token = 2068 # max_symbol_id + 1
-        self.char_offset = 2069
-        self.chars = "abcdefghijklmnopqrstuvwxyz "
-        self.char_to_id = {c: i + self.char_offset for i, c in enumerate(self.chars)}
+# Performance: Expandable segments help prevent fragmentation with long sequences
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-    def __len__(self):
-        return len(self.dataset)
+def tokenize_function(example):
+    # Mapping logic (Simplified to focus on efficiency)
+    max_homophone = 8192
+    sep_token = max_homophone + 1
+    char_offset = sep_token + 1
+    chars = "abcdefghijklmnopqrstuvwxyz " 
+    char_to_id = {char: i for i, char in enumerate(chars)}
 
-    def __getitem__(self, idx):
-        item = self.dataset[idx]
-        cipher_ids = [int(x) for x in item["ciphertext"].split()]
-        plain_ids = [self.char_to_id.get(c, self.char_to_id[' ']) for c in item["plaintext"]]
-        
-        # Format: [Cipher] [SEP] [Plaintext]
-        input_ids = cipher_ids + [self.sep_token] + plain_ids
-        
-        # Truncate to max context
-        input_ids = input_ids[:cfg.max_position_embeddings]
-        
-        # We only want to compute loss on the Plaintext part (the labels)
-        # However, for causal LM, standard practice is to shift internally.
-        # To ignore cipher loss, we could set labels for cipher tokens to -100.
-        labels = [-100] * (len(cipher_ids) + 1) + plain_ids
-        labels = labels[:cfg.max_position_embeddings]
+    # Truncate to ensure they fit in the 20k window (10k each)
+    cipher_ids = [int(x) for x in example["ciphertext"].split()][:10000]
+    plain_ids = [char_to_id.get(c, 0) + char_offset for c in example["plaintext"]][:10000]
 
-        return {
-            "input_ids": torch.tensor(input_ids, dtype=torch.long),
-            "labels": torch.tensor(labels, dtype=torch.long)
-        }
+    full_seq = cipher_ids + [sep_token] + plain_ids
+    
+    return {
+        "input_ids": full_seq,
+        "labels": full_seq.copy()
+    }
 
 def train():
-    model = get_mistral_model()
-    train_ds = CipherDataset(cfg.TRAINING_DIR)
+    # This will now exit if Flash Attention is missing
+    model = get_model()
     
-    training_args = TrainingArguments(
-        output_dir=str(cfg.OUTPUT_DIR),
+    train_ds = load_from_disk(str(cfg.data_dir))
+    test_ds = load_from_disk(str(cfg.test_dir))
+
+    train_ds = train_ds.map(tokenize_function, num_proc=16) # Higher proc for speed
+    test_ds = test_ds.map(tokenize_function, num_proc=16)
+
+    args = TrainingArguments(
+        output_dir=str(cfg.output_dir),
+        num_train_epochs=cfg.epochs,
         per_device_train_batch_size=cfg.batch_size,
         gradient_accumulation_steps=cfg.grad_accum,
         learning_rate=cfg.learning_rate,
-        bf16=cfg.bf16,
-        logging_steps=cfg.log_steps,
-        num_train_epochs=cfg.epochs,
-        save_steps=cfg.save_steps,
-        # L4 GPUs support FlashAttention2 via the attn_implementation flag
-        optim="adamw_torch_fused",
-        lr_scheduler_type="cosine",
-        ddp_find_unused_parameters=False,
-        gradient_checkpointing=True,
+        gradient_checkpointing=cfg.grad_checkpoint,
+        bf16=True, 
+        tf32=True, # L4 GPUs support TF32 for faster float32 math
+        logging_steps=5,
+        save_steps=500,
+        eval_strategy="steps",
+        eval_steps=500,
+        torch_compile=True, 
+        # Mistral uses Flash Attention 2 automatically in Transformers 4.34+ 
+        # if the package is installed.
     )
 
     trainer = Trainer(
         model=model,
-        args=training_args,
+        args=args,
         train_dataset=train_ds,
-        # Standard DC handles padding if sequences varied, but we truncate/pack
-        data_collator=DataCollatorForLanguageModeling(tokenizer=None, mlm=False)
+        eval_dataset=test_ds,
+        data_collator=DataCollatorForLanguageModeling(tokenizer=None, mlm=False, pad_to_multiple_of=8)
     )
 
+    print("--- Starting Training ---")
     trainer.train()
-    trainer.save_model(str(cfg.OUTPUT_DIR / "final_mistral"))
+    trainer.save_model(str(cfg.output_dir / "final_cipher_model"))
 
 if __name__ == "__main__":
     train()
