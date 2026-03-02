@@ -1,71 +1,125 @@
 import os
 import torch
 from datasets import load_from_disk
-from model import get_model
-from transformers import Trainer, TrainingArguments, DataCollatorForLanguageModeling
+from torch.utils.data import Dataset
+from transformers import Trainer, TrainingArguments
 from config import cfg
+from model import get_model
 
-# Performance: Expandable segments help prevent fragmentation with long sequences
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 
-def tokenize_function(example):
-    # Mapping logic (Simplified to focus on efficiency)
-    max_homophone = 8192
-    sep_token = max_homophone + 1
-    char_offset = sep_token + 1
-    chars = "abcdefghijklmnopqrstuvwxyz " 
-    char_to_id = {char: i for i, char in enumerate(chars)}
+class ArrowDatasetWrapper(Dataset):
+    def __init__(self, directory_path):
+        self.hf_dataset = load_from_disk(str(directory_path))
+        
+        if len(self.hf_dataset) == 0 and int(os.environ.get("LOCAL_RANK", 0)) == 0:
+            print(f"Warning: Dataset at {directory_path} is empty.")
+            
+        self.max_homophone = cfg.unique_homophones 
+        self.sep_token = self.max_homophone + 1
+        char_offset = self.sep_token + 1
+        chars = "abcdefghijklmnopqrstuvwxyz "
+        
+        self.char_to_id = {char: i + char_offset for i, char in enumerate(chars)}
 
-    # Truncate to ensure they fit in the 20k window (10k each)
-    cipher_ids = [int(x) for x in example["ciphertext"].split()][:10000]
-    plain_ids = [char_to_id.get(c, 0) + char_offset for c in example["plaintext"]][:10000]
+    def __len__(self):
+        return len(self.hf_dataset)
 
-    full_seq = cipher_ids + [sep_token] + plain_ids
+    def __getitem__(self, idx):
+        data = self.hf_dataset[idx]
+        cipher_ids = [int(x) for x in data["ciphertext"].split()]
+        plain_text = data.get("plaintext", "")
+        plain_ids = [self.char_to_id.get(char, 0) for char in plain_text] 
+        
+        # Build full sequence
+        input_ids = cipher_ids + [self.sep_token] + plain_ids
+        
+        if len(input_ids) > cfg.max_context:
+            input_ids = input_ids[:cfg.max_context]
+            
+        # CIPHERTEXT MASKING STRATEGY:
+        # We set labels for the ciphertext to -100 so the model does NOT calculate 
+        # cross-entropy loss on predicting the ciphertext from itself. 
+        # It only calculates loss on predicting plaintext from the ciphertext context.
+        labels = ([-100] * len(cipher_ids)) + [-100] + plain_ids
+        
+        if len(labels) > cfg.max_context:
+            labels = labels[:cfg.max_context]
+
+        return {
+            "input_ids": torch.tensor(input_ids, dtype=torch.long),
+            "labels": torch.tensor(labels, dtype=torch.long)
+        }
+
+def custom_collate(batch):
+    """
+    Pads the batch dynamically to the longest sequence in the batch.
+    """
+    input_ids = [item["input_ids"] for item in batch]
+    labels = [item["labels"] for item in batch]
+    
+    # Pad input_ids with 0 and labels with -100
+    input_ids_padded = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=0)
+    labels_padded = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=-100)
+    
+    # Attention mask (1 for real tokens, 0 for padding)
+    attention_mask = (input_ids_padded != 0).long()
     
     return {
-        "input_ids": full_seq,
-        "labels": full_seq.copy()
+        "input_ids": input_ids_padded,
+        "attention_mask": attention_mask,
+        "labels": labels_padded
     }
 
 def train():
-    # This will now exit if Flash Attention is missing
     model = get_model()
     
-    train_ds = load_from_disk(str(cfg.data_dir))
-    test_ds = load_from_disk(str(cfg.test_dir))
+    train_ds = ArrowDatasetWrapper(cfg.data_dir)
+    test_ds = ArrowDatasetWrapper(cfg.test_dir)
 
-    train_ds = train_ds.map(tokenize_function, num_proc=16) # Higher proc for speed
-    test_ds = test_ds.map(tokenize_function, num_proc=16)
-
-    args = TrainingArguments(
+    train_args = TrainingArguments(
         output_dir=str(cfg.output_dir),
         num_train_epochs=cfg.epochs,
         per_device_train_batch_size=cfg.batch_size,
         gradient_accumulation_steps=cfg.grad_accum,
         learning_rate=cfg.learning_rate,
+        weight_decay=0.01,
+        
+        # Checkpointing & Memory Management
         gradient_checkpointing=cfg.grad_checkpoint,
-        bf16=True, 
-        tf32=True, # L4 GPUs support TF32 for faster float32 math
-        logging_steps=5,
-        save_steps=500,
+        bf16=cfg.bf16,
+        
+        # Logging
+        logging_steps=100,
+        save_steps=1000,
+        save_total_limit=2,
         eval_strategy="steps",
-        eval_steps=500,
-        torch_compile=True, 
-        # Mistral uses Flash Attention 2 automatically in Transformers 4.34+ 
-        # if the package is installed.
+        eval_steps=1000,
+        
+        # DDP/FSDP configurations for 4x L4 setup
+        fsdp="full_shard auto_wrap",
+        fsdp_transformer_layer_cls_to_wrap="MistralDecoderLayer",
+        dataloader_num_workers=4,
+        ddp_find_unused_parameters=False,
     )
 
     trainer = Trainer(
         model=model,
-        args=args,
+        args=train_args,
         train_dataset=train_ds,
         eval_dataset=test_ds,
-        data_collator=DataCollatorForLanguageModeling(tokenizer=None, mlm=False, pad_to_multiple_of=8)
+        data_collator=custom_collate
     )
 
-    print("--- Starting Training ---")
+    if trainer.is_world_process_zero():
+        print(f"Starting distributed training on {torch.cuda.device_count()} GPUs...")
+        
     trainer.train()
-    trainer.save_model(str(cfg.output_dir / "final_cipher_model"))
+    
+    if trainer.is_world_process_zero():
+        print("Saving final model...")
+        trainer.save_model(os.path.join(str(cfg.output_dir), "final_model"))
+        print("Model saved successfully.")
 
 if __name__ == "__main__":
     train()
