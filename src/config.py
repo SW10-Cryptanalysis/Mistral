@@ -2,16 +2,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Context sizing for Ciphers
-TEXT_LEN = 8_192
-TOTAL_SEQ = 16_384  # Sufficient for max train length of 9950 tokens
+TEXT_LEN = 10000
+TOTAL_SEQ = TEXT_LEN * 2
 
 DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
 TRAINING_DIR = DATA_DIR / "Training_Arrow"
 TEST_DIR = DATA_DIR / "Test_Arrow"
-EVAL_DIR = DATA_DIR / "Test"
-VALIDATION_DIR = DATA_DIR / "Validation"
+VALIDATION_DIR = DATA_DIR / "Validation_Arrow"
 
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
+TOKENIZED_TRAINING_DIR = OUTPUT_DIR / "Tokenized_Training"
+TOKENIZED_TEST_DIR = OUTPUT_DIR / "Tokenized_Test"
+TOKENIZED_VALIDATION_DIR = OUTPUT_DIR / "Tokenized_Validation"
 
 @dataclass
 class Config:
@@ -36,11 +38,21 @@ class Config:
     epochs: int = 3
     grad_checkpoint: bool = True
     bf16: bool = True
+    torch_compile: bool = True
+    
+    # STEPS
+    logging_steps: int = 50
+    save_steps: int = 250
+    eval_steps: int = 1000
+    save_total_limit: int = 2
 
     # SYSTEM
     output_dir: Path = OUTPUT_DIR
     data_dir: Path = TRAINING_DIR
     test_dir: Path = TEST_DIR
-    eval_dir: Path = EVAL_DIR
+    val_dir: Path = VALIDATION_DIR
+    tokenized_training_dir: Path = TOKENIZED_TRAINING_DIR
+    tokenized_test_dir: Path = TOKENIZED_TEST_DIR
+    tokenized_val_dir: Path = TOKENIZED_VALIDATION_DIR
 
 cfg = Config()

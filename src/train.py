@@ -86,21 +86,25 @@ def train():
         weight_decay=0.01,
         
         # Checkpointing & Memory Management
-        gradient_checkpointing=cfg.grad_checkpoint,
         bf16=cfg.bf16,
         
         # Logging
-        logging_steps=100,
-        save_steps=1000,
-        save_total_limit=2,
+        logging_steps=cfg.logging_steps,
+        save_steps=cfg.save_steps,
+        eval_steps=cfg.eval_steps,
+        save_total_limit=cfg.save_total_limit,
         eval_strategy="steps",
-        eval_steps=1000,
+        
+        # Performance optimizations
+        torch_compile=cfg.torch_compile,
+        dataloader_num_workers=8,
         
         # DDP/FSDP configurations for 4x L4 setup
         fsdp="full_shard auto_wrap",
-        fsdp_transformer_layer_cls_to_wrap="MistralDecoderLayer",
-        dataloader_num_workers=4,
-        ddp_find_unused_parameters=False,
+        fsdp_config={
+            "transformer_layer_cls_to_wrap": ["MistralDecoderLayer"],
+            "activation_checkpointing": cfg.grad_checkpoint
+        },
     )
 
     trainer = Trainer(
