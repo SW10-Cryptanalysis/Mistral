@@ -8,43 +8,27 @@ from model import get_model
 
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 
-class ArrowDatasetWrapper(Dataset):
+class PretokenizedCipherDataset(Dataset):
+    """
+    Directly loads Arrow files mapped by the preprocessing pipeline.
+    All data is pre-tokenized and labels are pre-set for Equal Loss Weighting.
+    """
     def __init__(self, directory_path):
         self.hf_dataset = load_from_disk(str(directory_path))
         
         if len(self.hf_dataset) == 0 and int(os.environ.get("LOCAL_RANK", 0)) == 0:
             print(f"Warning: Dataset at {directory_path} is empty.")
-            
-        self.max_homophone = cfg.unique_homophones 
-        self.sep_token = self.max_homophone + 1
-        char_offset = self.sep_token + 1
-        chars = "abcdefghijklmnopqrstuvwxyz "
-        
-        self.char_to_id = {char: i + char_offset for i, char in enumerate(chars)}
 
     def __len__(self):
         return len(self.hf_dataset)
 
     def __getitem__(self, idx):
-        data = self.hf_dataset[idx]
-        cipher_ids = [int(x) for x in data["ciphertext"].split()]
-        plain_text = data.get("plaintext", "")
-        plain_ids = [self.char_to_id.get(char, 0) for char in plain_text] 
+        item = self.hf_dataset[idx]
         
-        # Build full sequence
-        input_ids = cipher_ids + [self.sep_token] + plain_ids
-        
-        if len(input_ids) > cfg.max_context:
-            input_ids = input_ids[:cfg.max_context]
-            
-        # CIPHERTEXT MASKING STRATEGY:
-        # We set labels for the ciphertext to -100 so the model does NOT calculate 
-        # cross-entropy loss on predicting the ciphertext from itself. 
-        # It only calculates loss on predicting plaintext from the ciphertext context.
-        labels = ([-100] * len(cipher_ids)) + [-100] + plain_ids
-        
-        if len(labels) > cfg.max_context:
-            labels = labels[:cfg.max_context]
+        # Data is already tokenized. We enforce the Mandatory Training Objective 
+        # by ensuring labels equal input_ids for full sequence modeling.
+        input_ids = item["input_ids"][:cfg.max_context]
+        labels = item["labels"][:cfg.max_context]
 
         return {
             "input_ids": torch.tensor(input_ids, dtype=torch.long),
@@ -53,16 +37,17 @@ class ArrowDatasetWrapper(Dataset):
 
 def custom_collate(batch):
     """
-    Pads the batch dynamically to the longest sequence in the batch.
+    Pads the pre-tokenized batch dynamically to the longest sequence in the batch.
     """
     input_ids = [item["input_ids"] for item in batch]
     labels = [item["labels"] for item in batch]
     
-    # Pad input_ids with 0 and labels with -100
     input_ids_padded = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=0)
+    
+    # Since we are predicting the whole sequence, padding tokens in the labels are set to -100
+    # to avoid penalizing the model for padding.
     labels_padded = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=-100)
     
-    # Attention mask (1 for real tokens, 0 for padding)
     attention_mask = (input_ids_padded != 0).long()
     
     return {
@@ -74,8 +59,8 @@ def custom_collate(batch):
 def train():
     model = get_model()
     
-    train_ds = ArrowDatasetWrapper(cfg.data_dir)
-    test_ds = ArrowDatasetWrapper(cfg.test_dir)
+    train_ds = PretokenizedCipherDataset(cfg.tokenized_training_dir)
+    test_ds = PretokenizedCipherDataset(cfg.tokenized_test_dir)
 
     train_args = TrainingArguments(
         output_dir=str(cfg.output_dir),
@@ -85,7 +70,7 @@ def train():
         learning_rate=cfg.learning_rate,
         weight_decay=0.01,
         
-        # Checkpointing & Memory Management
+        # Checkpointing & Memory Management (L4 Optimization)
         bf16=cfg.bf16,
         
         # Logging

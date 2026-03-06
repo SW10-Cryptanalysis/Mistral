@@ -5,10 +5,9 @@ from config import cfg
 
 def get_model():
     """
-    Instantiates a fresh Mistral architecture configured for cipher decryption.
-    Utilizes Flash Attention 2 natively if available.
+    Instantiates a Mistral architecture configured for sequence-to-sequence cipher decryption.
+    Forces Flash Attention 2 for large context windows.
     """
-    # Configure the Mistral architecture
     config = MistralConfig(
         vocab_size=cfg.vocab_size,
         hidden_size=cfg.hidden_size,
@@ -23,7 +22,6 @@ def get_model():
         bos_token_id=0,
         eos_token_id=0,
         pad_token_id=0,
-        # Native HuggingFace FA2 integration
         attn_implementation="flash_attention_2" if torch.cuda.is_available() else "sdpa"
     )
 
