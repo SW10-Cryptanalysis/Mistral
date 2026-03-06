@@ -2,14 +2,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Context sizing for Ciphers based on provided metadata
-TEXT_LEN = 10000 # Max length is 9950
+TEXT_LEN = 9961 # Updated to match the max_length from metadata
 TOTAL_SEQ = TEXT_LEN * 2
-BUFFER = 10 
+BUFFER = 78 # Buffer to reach clean tensor shapes
 
 DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
 
-# Expecting pre-tokenized Arrow directories
 TOKENIZED_TRAINING_DIR = DATA_DIR / "tokenized_normal" / "Training"
 TOKENIZED_TEST_DIR = DATA_DIR / "tokenized_normal" / "Test"
 TOKENIZED_VALIDATION_DIR = DATA_DIR / "tokenized_normal" / "Validation"
@@ -17,10 +16,11 @@ TOKENIZED_VALIDATION_DIR = DATA_DIR / "tokenized_normal" / "Validation"
 @dataclass
 class Config:
     # ARCHITECTURE
-    unique_homophones: int = 2067 
+    unique_homophones: int = 2494 # Updated from metadata.json max_symbol_id
     unique_letters: int = 26
-    vocab_size: int = 2176  # 2067 + 26 + buffer, padded to multiple of 64 for Tensor Cores
-    max_context: int = TOTAL_SEQ + BUFFER
+    # 2494 + 26 = 2520. Padded to 2560 for L4 Ada Lovelace Tensor Cores
+    vocab_size: int = 2560  
+    max_context: int = TOTAL_SEQ + BUFFER # 20000 exactly
     
     # Mistral Specific Hyperparameters
     hidden_size: int = 512
@@ -28,10 +28,10 @@ class Config:
     num_hidden_layers: int = 16
     num_attention_heads: int = 16
     num_key_value_heads: int = 4  # GQA
-    sliding_window: int = 4096
-    rope_theta: float = 1000000.0 # Increased for longer contexts
+    sliding_window: int = 20000 # Disabled effectively to allow global cross-sequence attention
+    rope_theta: float = 1_000_000.0 # Excellent for 20k context
     
-    # TRAINING (Optimized for 4-8x L4 GPUs)
+    # TRAINING (AAU AI-Lab Optimization: 4-8x L4 GPUs)
     batch_size: int = 1 
     grad_accum: int = 16
     learning_rate: float = 3e-4

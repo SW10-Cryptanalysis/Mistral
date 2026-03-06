@@ -20,7 +20,7 @@ class PretokenizedCipherDataset(Dataset):
     def __getitem__(self, idx):
         item = self.hf_dataset[idx]
         
-        # Enforce Mandatory Training Objective
+        # Enforce Mandatory Training Objective (Equal Loss Weighting)
         input_ids = item["input_ids"][:cfg.max_context]
         labels = item["labels"][:cfg.max_context]
 
