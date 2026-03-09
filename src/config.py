@@ -2,9 +2,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Context sizing for Ciphers based on provided metadata
-TEXT_LEN = 9961 # Updated to match the max_length from metadata
+TEXT_LEN = 9961 
 TOTAL_SEQ = TEXT_LEN * 2
-BUFFER = 78 # Buffer to reach clean tensor shapes
+BUFFER = 78 
 
 DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
@@ -16,13 +16,13 @@ TOKENIZED_VALIDATION_DIR = DATA_DIR / "tokenized_normal" / "Validation"
 @dataclass
 class Config:
     # ARCHITECTURE
-    unique_homophones: int = 2494 # Updated from metadata.json max_symbol_id
+    unique_homophones: int = 2494 
     unique_letters: int = 26
     # 2494 + 26 = 2520. Padded to 2560 for L4 Ada Lovelace Tensor Cores
     vocab_size: int = 2560  
     max_context: int = TOTAL_SEQ + BUFFER # 20000 exactly
     
-    # Token IDs (Strictly mapped to prevent overlap)
+    # Token IDs
     pad_token_id: int = 0
     sep_token_id: int = 2495
     space_token_id: int = 2496
@@ -34,18 +34,19 @@ class Config:
     intermediate_size: int = 2048
     num_hidden_layers: int = 16
     num_attention_heads: int = 16
-    num_key_value_heads: int = 4  # GQA
-    sliding_window: int = 20000 # Disabled effectively to allow global cross-sequence attention
-    rope_theta: float = 1_000_000.0 # Excellent for 20k context
+    num_key_value_heads: int = 4  
+    sliding_window: int = 20000 
+    rope_theta: float = 1_000_000.0 
     
     # TRAINING (AAU AI-Lab Optimization: 4-8x L4 GPUs)
     batch_size: int = 4 
     grad_accum: int = 4
     learning_rate: float = 3e-4
     epochs: int = 3
-    grad_checkpoint: bool = True
+    
+    grad_checkpoint: bool = False
+    torch_compile: bool = False
     bf16: bool = True
-    torch_compile: bool = True
     
     # STEPS
     logging_steps: int = 10
