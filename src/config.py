@@ -44,7 +44,7 @@ class Config:
     learning_rate: float = 3e-4
     epochs: int = 3
     
-    grad_checkpoint: bool = False
+    grad_checkpoint: bool = True
     torch_compile: bool = False
     bf16: bool = True
     
