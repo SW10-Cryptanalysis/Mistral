@@ -1,5 +1,6 @@
 import os
 import torch
+import numpy as np
 from datasets import load_from_disk
 from torch.utils.data import Dataset
 from transformers import Trainer, TrainingArguments
@@ -50,6 +51,32 @@ def safe_pad_collate(batch):
         "attention_mask": attention_mask,
         "labels": labels_padded
     }
+    
+def compute_metrics(eval_preds):
+    logits, labels = eval_preds
+    predictions = np.argmax(logits, axis=-1)
+
+    # We only care about the plaintext part. 
+    # In your setup, the labels for the ciphertext and SEP are also in 'labels'.
+    # If you want SER for the ENTIRE sequence (including ciphertext), use this.
+    # If you want it ONLY for the plaintext, the -100 masking handles it.
+
+    total_errors = 0
+    total_symbols = 0
+
+    for i in range(labels.shape[0]):
+        # Mask out padding (-100)
+        mask = labels[i] != -100
+        val_labels = labels[i][mask]
+        val_preds = predictions[i][mask]
+
+        # Calculate mismatches
+        total_errors += np.sum(val_labels != val_preds)
+        total_symbols += len(val_labels)
+
+    ser = total_errors / total_symbols if total_symbols > 0 else 0
+    return {"ser": ser}
+
 
 def train():
     model = get_model()
@@ -86,7 +113,8 @@ def train():
         args=train_args,
         train_dataset=train_ds,
         eval_dataset=test_ds,
-        data_collator=safe_pad_collate
+        data_collator=safe_pad_collate,
+        compute_metrics=compute_metrics
     )
 
     if trainer.is_world_process_zero():
@@ -98,8 +126,6 @@ def train():
         
     trainer.train(resume_from_checkpoint=last_checkpoint)
         
-    trainer.train()
-    
     if trainer.is_world_process_zero():
         print("Saving final model...")
         trainer.save_model(os.path.join(str(cfg.output_dir), "final_model"))
