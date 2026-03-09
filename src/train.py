@@ -3,6 +3,7 @@ import torch
 from datasets import load_from_disk
 from torch.utils.data import Dataset
 from transformers import Trainer, TrainingArguments
+from transformers.trainer_utils import get_last_checkpoint
 from config import cfg
 from model import get_model
 
@@ -90,6 +91,12 @@ def train():
 
     if trainer.is_world_process_zero():
         print(f"Starting Distributed Data Parallel (DDP) training on {torch.cuda.device_count()} GPUs...")
+        
+    last_checkpoint = get_last_checkpoint(str(cfg.output_dir))
+    if last_checkpoint is not None and trainer.is_world_process_zero():
+        print(f"Resuming training from checkpoint: {last_checkpoint}")
+        
+    trainer.train(resume_from_checkpoint=last_checkpoint)
         
     trainer.train()
     
