@@ -14,6 +14,22 @@ set -e
 PROJECT_DIR=/ceph/project/SW10-CausalLM/Mistral
 cd $PROJECT_DIR
 
+# ==============================================================================
+# DYNAMIC AUTO-CHAINING LOGIC
+# ==============================================================================
+# 1. Break the chain if training successfully finished in a previous run
+if [ -d "outputs/final_model" ]; then
+    echo "Success: 'outputs/final_model' found. Training is completely finished."
+    echo "Breaking the chain. No further jobs will be submitted."
+    exit 0
+fi
+
+# 2. Submit the NEXT job to the queue, dependent on THIS job finishing or timing out.
+# $SLURM_JOB_ID is the current job. $0 refers to this exact script file.
+echo "Dynamically queuing the next 12-hour continuation job..."
+sbatch --dependency=afterany:$SLURM_JOB_ID $0
+# ==============================================================================
+
 mkdir -p logs
 export HF_HUB_ENABLE_HF_TRANSFER=1
 
@@ -30,13 +46,11 @@ export OMP_NUM_THREADS=8
 # NCCL Optimizations for FSDP on L4s
 export NCCL_DEBUG=INFO
 export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
-# export NCCL_P2P_DISABLE=1 # Uncomment ONLY if you experience PCIe P2P hangs on your specific cluster
 
 # Ensure environment is synced
 uv pip install -e .
 
 # Mistral relies heavily on FA2 for sliding window attention.
-# We retain your excellent direct wheel compilation strategy.
 uv pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 
 # Ensure master_port is randomized slightly to prevent port collision on shared nodes
