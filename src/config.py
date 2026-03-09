@@ -39,8 +39,8 @@ class Config:
     rope_theta: float = 1_000_000.0 # Excellent for 20k context
     
     # TRAINING (AAU AI-Lab Optimization: 4-8x L4 GPUs)
-    batch_size: int = 1 
-    grad_accum: int = 16
+    batch_size: int = 4 
+    grad_accum: int = 4
     learning_rate: float = 3e-4
     epochs: int = 3
     grad_checkpoint: bool = True
@@ -48,7 +48,7 @@ class Config:
     torch_compile: bool = True
     
     # STEPS
-    logging_steps: int = 50
+    logging_steps: int = 10
     save_steps: int = 250
     eval_steps: int = 1000
     save_total_limit: int = 2
