@@ -22,6 +22,13 @@ class Config:
     vocab_size: int = 2560  
     max_context: int = TOTAL_SEQ + BUFFER # 20000 exactly
     
+    # Token IDs (Strictly mapped to prevent overlap)
+    pad_token_id: int = 0
+    sep_token_id: int = 2495
+    space_token_id: int = 2496
+    bos_token_id: int = 2497
+    eos_token_id: int = 2498
+    
     # Mistral Specific Hyperparameters
     hidden_size: int = 512
     intermediate_size: int = 2048

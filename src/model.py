@@ -33,7 +33,7 @@ def apply_custom_initialization(model, config):
 def get_model():
     """
     Instantiates a Mistral architecture configured for sequence-to-sequence cipher decryption.
-    Forces Flash Attention 2 for large context windows.
+    Forces Flash Attention 2 for large context windows and Bfloat16 for Ada Lovelace Tensor Cores.
     """
     config = MistralConfig(
         vocab_size=cfg.vocab_size,
@@ -46,13 +46,15 @@ def get_model():
         max_position_embeddings=cfg.max_context,
         sliding_window=cfg.sliding_window,
         rope_theta=cfg.rope_theta,
-        bos_token_id=0,
-        eos_token_id=0,
-        pad_token_id=0,
+        pad_token_id=cfg.pad_token_id,
+        bos_token_id=cfg.bos_token_id,
+        eos_token_id=cfg.eos_token_id,
+        torch_dtype=torch.bfloat16, # Added: Resolves FA2 dtype warning and natively targets L4 architecture
         attn_implementation="flash_attention_2" if torch.cuda.is_available() else "sdpa"
     )
 
-    model = MistralForCausalLM(config)
+    # Initialize directly in bfloat16 to avoid VRAM spikes during weight casting under FSDP
+    model = MistralForCausalLM(config).to(torch.bfloat16)
     
     # Apply the academic variance-preserving initialization
     apply_custom_initialization(model, config)

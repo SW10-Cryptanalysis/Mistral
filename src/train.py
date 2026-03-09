@@ -6,6 +6,8 @@ from transformers import Trainer, TrainingArguments
 from config import cfg
 from model import get_model
 
+torch.set_float32_matmul_precision('high')
+
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 
 class PretokenizedCipherDataset(Dataset):
@@ -21,6 +23,8 @@ class PretokenizedCipherDataset(Dataset):
         item = self.hf_dataset[idx]
         
         # Enforce Mandatory Training Objective (Equal Loss Weighting)
+        # Note: To ensure equal loss, the underlying dataset should NOT mask the 
+        # ciphertext section of `labels` with -100. It must predict the whole sequence.
         input_ids = item["input_ids"][:cfg.max_context]
         labels = item["labels"][:cfg.max_context]
 
@@ -37,13 +41,19 @@ def safe_pad_collate(batch):
     input_ids = [item["input_ids"] for item in batch]
     labels = [item["labels"] for item in batch]
     
-    # Pad input_ids with vocabulary pad token (0)
-    input_ids_padded = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=0)
+    # Pad input_ids using the dedicated vocabulary pad token
+    input_ids_padded = torch.nn.utils.rnn.pad_sequence(
+        input_ids, batch_first=True, padding_value=cfg.pad_token_id
+    )
     
-    # Pad labels with ignore_index (-100)
-    labels_padded = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=-100)
+    # Pad labels with ignore_index (-100). This only ignores the padding tokens, 
+    # maintaining Equal Loss Weighting over the [Cipher][SEP][Plaintext] elements.
+    labels_padded = torch.nn.utils.rnn.pad_sequence(
+        labels, batch_first=True, padding_value=-100
+    )
     
-    attention_mask = (input_ids_padded != 0).long()
+    # Construct the attention mask dynamically using the distinct pad_token_id
+    attention_mask = (input_ids_padded != cfg.pad_token_id).long()
     
     return {
         "input_ids": input_ids_padded,
