@@ -1,7 +1,6 @@
 import math
 import pytest
 import torch
-from unittest.mock import patch, MagicMock
 from transformers import MistralConfig, MistralForCausalLM
 
 from src import model
@@ -41,34 +40,32 @@ def test_apply_custom_initialization(tiny_cfg):
 
     assert (expected_scaled_std * 0.5) < down_proj_std < (expected_scaled_std * 1.5)
 
-@patch("src.model.torch.cuda.is_available")
-def test_get_model_sdpa_fallback(mock_cuda, tiny_cfg):
+def test_get_model_sdpa_fallback(mocker, tiny_cfg):
+    mock_cuda = mocker.patch("src.model.torch.cuda.is_available")
     mock_cuda.return_value = False
+    mocker.patch("src.model.cfg", tiny_cfg)
+    mocker.patch("os.environ.get", return_value="0")
 
-    with (
-        patch("src.model.cfg", tiny_cfg),
-        patch("os.environ.get", return_value="0")
-    ):
-        test_model = model.get_model()
+    test_model = model.get_model()
 
     attn_impl = getattr(test_model.config, "_attn_implementation", getattr(test_model.config, "attn_implementation", None))
     assert attn_impl == "sdpa"
     assert test_model.dtype == torch.bfloat16
 
-@patch("src.model.torch.cuda.is_available")
-@patch("src.model.MistralForCausalLM")
-def test_get_model_flash_attention(mock_mistral_cls, mock_cuda, tiny_cfg):
+def test_get_model_flash_attention(mocker, tiny_cfg):
+    mock_cuda = mocker.patch("src.model.torch.cuda.is_available")
+    mock_mistral_cls = mocker.patch("src.model.MistralForCausalLM")
+
     mock_cuda.return_value = True
-    mock_model_instance = MagicMock()
+    mock_model_instance = mocker.MagicMock()
     mock_model_instance.to.return_value = mock_model_instance
     mock_model_instance.num_parameters.return_value = 100_000_000
     mock_mistral_cls.return_value = mock_model_instance
 
-    with (
-        patch("src.model.cfg", tiny_cfg),
-        patch("os.environ.get", return_value="0"),
-    ):
-        model.get_model()
+    mocker.patch("src.model.cfg", tiny_cfg)
+    mocker.patch("os.environ.get", return_value="0")
+
+    model.get_model()
 
     called_config = mock_mistral_cls.call_args[0][0]
     attn_impl = getattr(called_config, "_attn_implementation", getattr(called_config, "attn_implementation", None))

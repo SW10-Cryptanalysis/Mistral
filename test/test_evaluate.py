@@ -2,7 +2,6 @@ import json
 import pytest
 import torch
 from pathlib import Path
-from unittest.mock import patch, MagicMock, mock_open
 
 from src import evaluate
 from src.config import cfg as real_cfg
@@ -20,18 +19,19 @@ def dummy_cfg():
     real_cfg.output_dir = original_out
     real_cfg.val_dir = original_val
 
-@patch("src.evaluate.os.path.exists")
-def test_evaluate_model_not_found(mock_exists, caplog, dummy_cfg):
+def test_evaluate_model_not_found(mocker, caplog, dummy_cfg):
+    mock_exists = mocker.patch("src.evaluate.os.path.exists")
     mock_exists.return_value = False
 
     evaluate.evaluate()
 
     assert "Model path not found" in caplog.text
 
-@patch("src.evaluate.os.path.exists")
-@patch("src.evaluate.glob.glob")
-@patch("src.evaluate.MistralForCausalLM.from_pretrained")
-def test_evaluate_no_test_files(mock_from_pretrained, mock_glob, mock_exists, caplog, dummy_cfg):
+def test_evaluate_no_test_files(mocker, caplog, dummy_cfg):
+    mock_exists = mocker.patch("src.evaluate.os.path.exists")
+    mocker.patch("src.evaluate.MistralForCausalLM.from_pretrained")
+    mock_glob = mocker.patch("src.evaluate.glob.glob")
+
     mock_exists.return_value = True
     mock_glob.return_value = []
 
@@ -39,14 +39,15 @@ def test_evaluate_no_test_files(mock_from_pretrained, mock_glob, mock_exists, ca
 
     assert "No test files found" in caplog.text
 
-@patch("src.evaluate.os.path.exists")
-@patch("src.evaluate.glob.glob")
-@patch("src.evaluate.MistralForCausalLM.from_pretrained")
-def test_evaluate_full_execution(mock_from_pretrained, mock_glob, mock_exists, caplog, dummy_cfg):
+def test_evaluate_full_execution(mocker, caplog, dummy_cfg):
+    mock_exists = mocker.patch("src.evaluate.os.path.exists")
+    mock_glob = mocker.patch("src.evaluate.glob.glob")
+    mock_from_pretrained = mocker.patch("src.evaluate.MistralForCausalLM.from_pretrained")
+
     mock_exists.return_value = True
     mock_glob.return_value = ["dummy_test_1.json"]
 
-    mock_model = MagicMock()
+    mock_model = mocker.Mock()
     mock_from_pretrained.return_value = mock_model
 
     sep_token = dummy_cfg.unique_homophones + 1
@@ -62,8 +63,8 @@ def test_evaluate_full_execution(mock_from_pretrained, mock_glob, mock_exists, c
         "plaintext": "abc"
     })
 
-    with patch("builtins.open", mock_open(read_data=mock_file_content)):
-        evaluate.evaluate()
+    mocker.patch("builtins.open", mocker.mock_open(read_data=mock_file_content))
+    evaluate.evaluate()
 
     assert "Pred Plaintext: abc" in caplog.text
     assert "Symbol Error Rate (SER): 0.0000" in caplog.text

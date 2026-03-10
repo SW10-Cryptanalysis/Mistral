@@ -1,7 +1,6 @@
 import pytest
 import torch
 import numpy as np
-from unittest.mock import MagicMock, patch
 from src import train
 from src.config import Config
 
@@ -21,33 +20,33 @@ def mock_hf_dataset():
         {"input_ids": [1, 2], "labels": [1, 2]},
     ]
 
-@patch("src.train.load_from_disk")
-def test_pretokenized_cipher_dataset(mock_load, mock_hf_dataset, dummy_cfg):
+def test_pretokenized_cipher_dataset(mocker, mock_hf_dataset, dummy_cfg):
+    mock_load = mocker.patch("src.train.load_from_disk")
     mock_load.return_value = mock_hf_dataset
 
-    with patch("src.train.cfg", dummy_cfg):
-        dataset = train.PretokenizedCipherDataset("dummy/path")
+    mocker.patch("src.train.cfg", dummy_cfg)
+    dataset = train.PretokenizedCipherDataset("dummy/path")
 
-        assert len(dataset) == 2
+    assert len(dataset) == 2
 
-        item_0 = dataset[0]
-        assert isinstance(item_0["input_ids"], torch.Tensor)
-        assert isinstance(item_0["labels"], torch.Tensor)
+    item_0 = dataset[0]
+    assert isinstance(item_0["input_ids"], torch.Tensor)
+    assert isinstance(item_0["labels"], torch.Tensor)
 
-        assert item_0["input_ids"].tolist() == [1, 2, 3, 4, 5]
-        assert item_0["labels"].tolist() == [1, 2, 3, 4, 5]
+    assert item_0["input_ids"].tolist() == [1, 2, 3, 4, 5]
+    assert item_0["labels"].tolist() == [1, 2, 3, 4, 5]
 
-        item_1 = dataset[1]
-        assert item_1["input_ids"].tolist() == [1, 2]
+    item_1 = dataset[1]
+    assert item_1["input_ids"].tolist() == [1, 2]
 
-def test_safe_pad_collate(dummy_cfg):
+def test_safe_pad_collate(mocker, dummy_cfg):
     batch = [
         {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([4, 5, 6])},
         {"input_ids": torch.tensor([1]), "labels": torch.tensor([4])}
     ]
 
-    with patch("src.train.cfg", dummy_cfg):
-        collated = train.safe_pad_collate(batch)
+    mocker.patch("src.train.cfg", dummy_cfg)
+    collated = train.safe_pad_collate(batch)
 
     assert collated["input_ids"].shape == (2, 3)
     assert collated["labels"].shape == (2, 3)
@@ -84,17 +83,18 @@ def test_compute_metrics_zero_symbols():
     metrics = train.compute_metrics((logits, labels))
     assert metrics["ser"] == 0
 
-@patch("src.train.cfg.bf16", False)
-@patch("src.train.get_model")
-@patch("src.train.PretokenizedCipherDataset")
-@patch("src.train.Trainer")
-@patch("src.train.get_last_checkpoint")
-def test_train_execution(mock_get_checkpoint, mock_trainer_class, mock_dataset, mock_get_model):
-    mock_model_instance = MagicMock()
+def test_train_execution(mocker):
+    mocker.patch("src.train.cfg.bf16", False)
+    mock_get_model = mocker.patch("src.train.get_model")
+    mocker.patch("src.train.PretokenizedCipherDataset")
+    mock_trainer_class = mocker.patch("src.train.Trainer")
+    mock_get_checkpoint = mocker.patch("src.train.get_last_checkpoint")
+
+    mock_model_instance = mocker.Mock()
     mock_get_model.return_value = mock_model_instance
     mock_get_checkpoint.return_value = "dummy/checkpoint/path"
 
-    mock_trainer_instance = MagicMock()
+    mock_trainer_instance = mocker.Mock()
 
     mock_trainer_instance.is_world_process_zero.return_value = True
     mock_trainer_class.return_value = mock_trainer_instance
