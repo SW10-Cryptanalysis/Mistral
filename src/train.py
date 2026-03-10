@@ -87,8 +87,15 @@ def train():
         
     train_ds = PretokenizedCipherDataset(cfg.tokenized_training_dir)
     test_ds = PretokenizedCipherDataset(cfg.tokenized_test_dir)
+    
+    fsdp_config = {
+        "transformer_layer_cls_to_wrap": ["MistralDecoderLayer"],
+        "backward_prefetch": "backward_pre",
+        "forward_prefetch": "True",
+        "use_orig_params": "True",
+        "sync_module_states": "True",
+    }
 
-    # Note: FSDP explicitly removed. DDP will auto-engage when launched with torchrun/accelerate
     train_args = TrainingArguments(
         output_dir=str(cfg.output_dir),
         num_train_epochs=cfg.epochs,
@@ -104,8 +111,8 @@ def train():
         eval_strategy="steps",
         torch_compile=cfg.torch_compile,
         dataloader_num_workers=8,
-        # FSDP entirely removed
-        ddp_find_unused_parameters=False, # Accelerates DDP by skipping unused graph traversal
+        fsdp="full_shard auto_wrap",
+        fsdp_config=fsdp_config
     )
 
     trainer = Trainer(
@@ -118,7 +125,7 @@ def train():
     )
 
     if trainer.is_world_process_zero():
-        print(f"Starting Distributed Data Parallel (DDP) training on {torch.cuda.device_count()} GPUs...")
+        print(f"Starting training on {torch.cuda.device_count()} GPUs...")
         
     last_checkpoint = get_last_checkpoint(str(cfg.output_dir))
     if last_checkpoint is not None and trainer.is_world_process_zero():
