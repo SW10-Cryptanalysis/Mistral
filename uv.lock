@@ -401,6 +401,15 @@ wheels = [
 ]
 
 [[package]]
+name = "easy-logging-formatter"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/86/01/581211e93d5ea97f434fdadb92e82bb1afd058fc50be04b89b7145d37b29/easy_logging_formatter-0.1.1.tar.gz", hash = "sha256:996359868c7605142531048679ffedd6884b8beeb4bd622bcf8d5be4898cecd3", size = 47146, upload-time = "2025-12-03T22:43:54.897Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/40/2f/82bb65813e33fc9a301733611dc55d34f6cbf2f620338acd76ba36a54609/easy_logging_formatter-0.1.1-py3-none-any.whl", hash = "sha256:5ea2831ad11fb94eb61dc79eb9410b85c3c1306e23ebd2632d24fe57264acf93", size = 32315, upload-time = "2025-12-03T22:43:53.599Z" },
+]
+
+[[package]]
 name = "filelock"
 version = "3.24.3"
 source = { registry = "https://pypi.org/simple" }
@@ -718,6 +727,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "accelerate" },
     { name = "datasets" },
+    { name = "easy-logging-formatter" },
     { name = "levenshtein" },
     { name = "liger-kernel", marker = "sys_platform == 'linux'" },
     { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
@@ -738,6 +748,7 @@ dev = [
 requires-dist = [
     { name = "accelerate", specifier = ">=1.12.0" },
     { name = "datasets", specifier = ">=4.6.0" },
+    { name = "easy-logging-formatter", specifier = ">=0.1.1" },
     { name = "levenshtein", specifier = ">=0.27.3" },
     { name = "liger-kernel", marker = "sys_platform == 'linux'", specifier = ">=0.7.0" },
     { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'", specifier = "<2.0.0" },

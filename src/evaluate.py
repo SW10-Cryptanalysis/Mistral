@@ -2,25 +2,16 @@ import json
 import glob
 import os
 import logging
-import importlib
 import torch
 import Levenshtein
 from transformers import MistralForCausalLM
+from easy_logging import EasyFormatter
 from src.config import cfg
 
 handler = logging.StreamHandler()
-try:
-    easy_logging_module = importlib.import_module("easy_logging")
-    easy_formatter_cls = easy_logging_module.EasyFormatter
-    handler.setFormatter(easy_formatter_cls())
-except (ImportError, AttributeError):
-    handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
-
+handler.setFormatter(EasyFormatter())
 logger = logging.getLogger("evaluate.py")
-if not logger.handlers:
-    logger.addHandler(handler)
-logger.setLevel(logging.INFO)
-logger.propagate = True
+logger.addHandler(handler)
 
 def evaluate() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -1,4 +1,5 @@
 import json
+import logging
 import pytest
 import torch
 from pathlib import Path
@@ -40,6 +41,7 @@ def test_evaluate_no_test_files(mocker, caplog, dummy_cfg):
     assert "No test files found" in caplog.text
 
 def test_evaluate_full_execution(mocker, caplog, dummy_cfg):
+    caplog.set_level(logging.INFO, logger="evaluate.py")
     mock_exists = mocker.patch("src.evaluate.os.path.exists")
     mock_glob = mocker.patch("src.evaluate.glob.glob")
     mock_from_pretrained = mocker.patch("src.evaluate.MistralForCausalLM.from_pretrained")
