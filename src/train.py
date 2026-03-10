@@ -56,11 +56,6 @@ def compute_metrics(eval_preds):
     logits, labels = eval_preds
     predictions = np.argmax(logits, axis=-1)
 
-    # We only care about the plaintext part. 
-    # In your setup, the labels for the ciphertext and SEP are also in 'labels'.
-    # If you want SER for the ENTIRE sequence (including ciphertext), use this.
-    # If you want it ONLY for the plaintext, the -100 masking handles it.
-
     total_errors = 0
     total_symbols = 0
 
@@ -81,12 +76,16 @@ def compute_metrics(eval_preds):
 def train():
     model = get_model()
     
-    # Apply gradient checkpointing for VRAM management
     if cfg.grad_checkpoint:
         model.gradient_checkpointing_enable()
         
     train_ds = PretokenizedCipherDataset(cfg.tokenized_training_dir)
     test_ds = PretokenizedCipherDataset(cfg.tokenized_test_dir)
+    
+    # Dynamic Hardware Scaling
+    # Detect if we are on 1 GPU (testing) or Multiple GPUs (Production FSDP)
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    use_fsdp = world_size > 1
     
     fsdp_config = {
         "transformer_layer_cls_to_wrap": ["MistralDecoderLayer"],
@@ -94,7 +93,7 @@ def train():
         "forward_prefetch": "True",
         "use_orig_params": "True",
         "sync_module_states": "True",
-    }
+    } if use_fsdp else {}
 
     train_args = TrainingArguments(
         output_dir=str(cfg.output_dir),
@@ -111,7 +110,8 @@ def train():
         eval_strategy="steps",
         torch_compile=cfg.torch_compile,
         dataloader_num_workers=8,
-        fsdp="full_shard auto_wrap",
+        # Auto-toggle FSDP based on world size
+        fsdp="full_shard auto_wrap" if use_fsdp else "",
         fsdp_config=fsdp_config
     )
 
@@ -125,7 +125,8 @@ def train():
     )
 
     if trainer.is_world_process_zero():
-        print(f"Starting training on {torch.cuda.device_count()} GPUs...")
+        mode = "FSDP" if use_fsdp else "Standard Single-GPU"
+        print(f"Starting {mode} training on {world_size} GPU(s)...")
         
     last_checkpoint = get_last_checkpoint(str(cfg.output_dir))
     if last_checkpoint is not None and trainer.is_world_process_zero():
