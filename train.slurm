@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=mistral_cipher
+#SBATCH --job-name=mistral_cipher_1gpu
 #SBATCH --output=logs/slurm_%x_%j.out
 #SBATCH --error=logs/slurm_%x_%j.err
 #SBATCH --time=12:00:00
 #SBATCH --partition=l4
-#SBATCH --cpus-per-task=32    # Keeps dataloaders fed across 4 GPUs
-#SBATCH --mem=64G            # Crucial for FSDP CPU offloading/gathering
-#SBATCH --gres=gpu:l4:4
+#SBATCH --cpus-per-task=8      # Reduced since you are only feeding 1 GPU now
+#SBATCH --mem=32G            # Reduced memory, but keep high if your dataloader needs it
+#SBATCH --gres=gpu:l4:1      # CHANGED: Request exactly 1 L4 GPU
 
 set -e
 
@@ -35,8 +35,9 @@ export HF_HUB_ENABLE_HF_TRANSFER=1
 
 echo "Job started on $(hostname) at $(date)" | tee logs/train_live_${SLURM_JOB_ID}.log
 
-# Force exactly the allocated GPUs to be visible to avoid NCCL deadlock oversubscription
-export CUDA_VISIBLE_DEVICES=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print $1","$2","$3","$4}')
+# CHANGED: Simplified. Slurm will handle isolating the 1 GPU it gave you.
+# We just ensure it grabs the first available ID if multiple are somehow exposed.
+export CUDA_VISIBLE_DEVICES=$(echo $CUDA_VISIBLE_DEVICES | awk -F',' '{print $1}')
 
 nvidia-smi | tee -a logs/train_live_${SLURM_JOB_ID}.log
 
@@ -56,10 +57,9 @@ uv pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2
 # Ensure master_port is randomized slightly to prevent port collision on shared nodes
 MASTER_PORT=$((10000 + $RANDOM % 20000))
 
-# Launch with torchrun. Hugging Face Trainer automatically detects the distributed 
-# environment spawned by torchrun and applies the FSDP arguments defined in train.py
+# CHANGED: nproc_per_node set to 1 for single GPU training
 uv run torchrun \
-    --nproc_per_node=4 \
+    --nproc_per_node=1 \
     --master_port=$MASTER_PORT \
     src/train.py 2>&1 | tee -a logs/train_live_${SLURM_JOB_ID}.log
 
