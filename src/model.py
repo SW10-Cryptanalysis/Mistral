@@ -5,8 +5,9 @@ import torch.nn as nn
 from transformers import MistralConfig, MistralForCausalLM
 from src.config import cfg
 
-def apply_custom_initialization(model, config) -> None:
+def apply_custom_initialization(model: nn.Module, config: MistralConfig) -> None:
     """Applies variance-preserving weight initialization based on Han (2025).
+
     Enforces a stable standard deviation band (0.02) and depth-dependent residual scaling.
     """
     std = 0.02
@@ -29,8 +30,9 @@ def apply_custom_initialization(model, config) -> None:
         elif "lm_head.weight" in name:
             nn.init.normal_(param, mean=0.0, std=std)
 
-def get_model():
+def get_model() -> MistralForCausalLM:
     """Instantiates a Mistral architecture configured for sequence-to-sequence cipher decryption.
+
     Forces Flash Attention 2 for large context windows and Bfloat16 for Ada Lovelace Tensor Cores.
     """
     config = MistralConfig(

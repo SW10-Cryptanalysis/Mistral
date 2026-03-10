@@ -1,10 +1,26 @@
 import json
 import glob
 import os
+import logging
+import importlib
 import torch
 import Levenshtein
 from transformers import MistralForCausalLM
 from src.config import cfg
+
+handler = logging.StreamHandler()
+try:
+    easy_logging_module = importlib.import_module("easy_logging")
+    easy_formatter_cls = easy_logging_module.EasyFormatter
+    handler.setFormatter(easy_formatter_cls())
+except (ImportError, AttributeError):
+    handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+
+logger = logging.getLogger("evaluate.py")
+if not logger.handlers:
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+logger.propagate = False
 
 def evaluate() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -12,7 +28,7 @@ def evaluate() -> None:
     # 1. Locate and Load Model
     model_path = os.path.join(cfg.output_dir, "final_model")
     if not os.path.exists(model_path):
-        print(f"Model path not found: {model_path}")
+        logger.warning("Model path not found: %s", model_path)
         return
 
 
@@ -33,7 +49,7 @@ def evaluate() -> None:
     # 3. Load Test Files
     test_files = glob.glob(os.path.join(cfg.val_dir, "*.json"))[:10]
     if not test_files:
-        print("No test files found.")
+        logger.warning("No test files found in: %s", cfg.val_dir)
         return
 
 
@@ -75,8 +91,9 @@ def evaluate() -> None:
         true_plain_subset = true_plain[:len(pred_plain)]
         ser = Levenshtein.distance(true_plain_subset, pred_plain) / max(len(true_plain_subset), 1)
 
-        print(f"Pred Plaintext: {pred_plain}")
-        print(f"Symbol Error Rate (SER): {ser:.4f}")
+        logger.info("Pred Plaintext: %s", pred_plain)
+        logger.info("Symbol Error Rate (SER): %.4f", ser)
+
 
 
 if __name__ == "__main__":

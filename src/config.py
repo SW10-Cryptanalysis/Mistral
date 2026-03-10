@@ -16,6 +16,8 @@ TOKENIZED_VALIDATION_DIR = DATA_DIR / "tokenized_normal" / "Validation"
 
 @dataclass
 class Config:
+    """Centralized model, data, and training configuration values."""
+
     # ARCHITECTURE
     unique_homophones: int = 2494
     unique_letters: int = 26

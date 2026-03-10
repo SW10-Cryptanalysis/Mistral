@@ -1,9 +1,10 @@
 import os
+from pathlib import Path
 import torch
 import numpy as np
 from datasets import load_from_disk
 from torch.utils.data import Dataset
-from transformers import Trainer, TrainingArguments
+from transformers import EvalPrediction, Trainer, TrainingArguments
 from transformers.trainer_utils import get_last_checkpoint
 from src.config import cfg
 from src.model import get_model
@@ -12,15 +13,20 @@ torch.set_float32_matmul_precision("high")
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 
 class PretokenizedCipherDataset(Dataset):
-    def __init__(self, directory_path) -> None:
+    """Dataset wrapper for loading pre-tokenized cipher samples from disk."""
+
+    def __init__(self, directory_path: str | Path) -> None:
+        """Load a serialized Hugging Face dataset from `directory_path`."""
         self.hf_dataset = load_from_disk(str(directory_path))
         if len(self.hf_dataset) == 0 and int(os.environ.get("LOCAL_RANK", 0)) == 0:
             pass
 
     def __len__(self) -> int:
+        """Return the number of examples available in the dataset."""
         return len(self.hf_dataset)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+        """Fetch one sample and convert token arrays into `torch.long` tensors."""
         item = self.hf_dataset[idx]
 
         # Mandatory Training Objective (Equal Loss Weighting)
@@ -32,7 +38,8 @@ class PretokenizedCipherDataset(Dataset):
             "labels": torch.tensor(labels, dtype=torch.long),
         }
 
-def safe_pad_collate(batch):
+def safe_pad_collate(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
+    """Pad variable-length token tensors and build the attention mask."""
     input_ids = [item["input_ids"] for item in batch]
     labels = [item["labels"] for item in batch]
 
@@ -52,8 +59,22 @@ def safe_pad_collate(batch):
         "labels": labels_padded,
     }
 
-def compute_metrics(eval_preds):
-    logits, labels = eval_preds
+def compute_metrics(
+    eval_preds: EvalPrediction | tuple[np.ndarray, np.ndarray],
+) -> dict[str, float]:
+    """Compute symbol error rate (SER) while ignoring padded labels."""
+    if isinstance(eval_preds, tuple):
+        logits, labels = eval_preds
+    else:
+        logits = eval_preds.predictions
+        labels = eval_preds.label_ids
+
+    # Some trainer setups can return extra prediction tensors.
+    if isinstance(logits, tuple):
+        logits = logits[0]
+    if isinstance(labels, tuple):
+        labels = labels[0]
+
     predictions = np.argmax(logits, axis=-1)
 
     total_errors = 0
@@ -69,7 +90,7 @@ def compute_metrics(eval_preds):
         total_errors += np.sum(val_labels != val_preds)
         total_symbols += len(val_labels)
 
-    ser = total_errors / total_symbols if total_symbols > 0 else 0
+    ser = total_errors / total_symbols if total_symbols > 0 else 0.0
     return {"ser": ser}
 
 
