@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-# Context sizing for Ciphers based on provided metadata
 TEXT_LEN = 9961
 TOTAL_SEQ = TEXT_LEN * 2
 BUFFER = 78

@@ -49,14 +49,12 @@ def get_model() -> MistralForCausalLM:
         pad_token_id=cfg.pad_token_id,
         bos_token_id=cfg.bos_token_id,
         eos_token_id=cfg.eos_token_id,
-        torch_dtype=torch.bfloat16, # Added: Resolves FA2 dtype warning and natively targets L4 architecture
+        torch_dtype=torch.bfloat16,
         attn_implementation="flash_attention_2" if torch.cuda.is_available() else "sdpa",
     )
 
-    # Initialize directly in bfloat16 to avoid VRAM spikes during weight casting under FSDP
     model = MistralForCausalLM(config).to(torch.bfloat16)
 
-    # Apply the academic variance-preserving initialization
     apply_custom_initialization(model, config)
 
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:

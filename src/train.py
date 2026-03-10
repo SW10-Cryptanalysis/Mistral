@@ -69,7 +69,6 @@ def compute_metrics(
         logits = eval_preds.predictions
         labels = eval_preds.label_ids
 
-    # Some trainer setups can return extra prediction tensors.
     if isinstance(logits, tuple):
         logits = logits[0]
     if isinstance(labels, tuple):
@@ -101,7 +100,6 @@ def train() -> None:
     """
     model = get_model()
 
-    # Apply gradient checkpointing for VRAM management
     if cfg.grad_checkpoint:
         model.gradient_checkpointing_enable()
 

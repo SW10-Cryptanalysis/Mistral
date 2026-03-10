@@ -32,7 +32,6 @@ def evaluate() -> None:
         return
 
 
-    # We load via HF's from_pretrained natively now
     model = MistralForCausalLM.from_pretrained(
         model_path,
         torch_dtype=torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16,
@@ -77,11 +76,10 @@ def evaluate() -> None:
                 max_new_tokens=100,
                 pad_token_id=0,
                 eos_token_id=0,
-                do_sample=False, # Greedy decoding
-                use_cache=True,   # KV Caching for speed
+                do_sample=False,
+                use_cache=True,
             )
 
-        # Extract only the newly generated tokens
         generated_ids = outputs[0][input_tensor.shape[1]:].tolist()
 
         # 5. Decode

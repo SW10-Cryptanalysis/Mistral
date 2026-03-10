@@ -26,7 +26,6 @@ def test_evaluate_model_not_found(mock_exists, caplog, dummy_cfg):
 
     evaluate.evaluate()
 
-    # Check the log records instead of stdout
     assert "Model path not found" in caplog.text
 
 @patch("src.evaluate.os.path.exists")
@@ -50,11 +49,9 @@ def test_evaluate_full_execution(mock_from_pretrained, mock_glob, mock_exists, c
     mock_model = MagicMock()
     mock_from_pretrained.return_value = mock_model
 
-    # Setup dummy tokens
     sep_token = dummy_cfg.unique_homophones + 1
     char_offset = sep_token + 1
 
-    # Mocking the model response: [input] + [sep] + [generated]
     generated_tokens = [char_offset + i for i in range(3)] # maps to 'abc'
     input_cipher_ids = [100, 101, 102]
     mock_generated_sequence = input_cipher_ids + [sep_token] + generated_tokens
@@ -68,6 +65,5 @@ def test_evaluate_full_execution(mock_from_pretrained, mock_glob, mock_exists, c
     with patch("builtins.open", mock_open(read_data=mock_file_content)):
         evaluate.evaluate()
 
-    # Now we verify actual content!
     assert "Pred Plaintext: abc" in caplog.text
     assert "Symbol Error Rate (SER): 0.0000" in caplog.text
