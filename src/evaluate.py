@@ -20,7 +20,7 @@ logger = logging.getLogger("evaluate.py")
 if not logger.handlers:
     logger.addHandler(handler)
 logger.setLevel(logging.INFO)
-logger.propagate = False
+logger.propagate = True
 
 def evaluate() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
