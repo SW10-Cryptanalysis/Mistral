@@ -9,7 +9,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from src.config import cfg
 from src.model import get_model
 
-torch.set_float32_matmul_precision("high")
+torch.backends.cuda.matmul.fp32_precision = "tf32"
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 
 class PretokenizedCipherDataset(Dataset):
