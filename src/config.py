@@ -1,12 +1,23 @@
+import os
+import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
+from easy_logging import EasyFormatter
+
+handler = logging.StreamHandler()
+handler.setFormatter(EasyFormatter())
+logger = logging.getLogger(__name__)
+logger.addHandler(handler)
 
 TEXT_LEN = 9961
 TOTAL_SEQ = TEXT_LEN * 2
 BUFFER = 78
+UNIQUE_HOMOPHONE_COUNT = 2494
 
 DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
+HOMOPHONE_FILE = "metadata.json"
 
 VALIDATION_DIR = DATA_DIR / "Validation"
 TOKENIZED_TRAINING_DIR = DATA_DIR / "tokenized_normal" / "Training"
@@ -18,18 +29,12 @@ class Config:
     """Centralized model, data, and training configuration values."""
 
     # ARCHITECTURE
-    unique_homophones: int = 2494
+    unique_homophones: int = UNIQUE_HOMOPHONE_COUNT
     unique_letters: int = 26
     # 2494 + 26 = 2520. Padded to 2560 for L4 Ada Lovelace Tensor Cores
     vocab_size: int = 2560
     max_context: int = TOTAL_SEQ + BUFFER # 20000 exactly
 
-    # Token IDs
-    pad_token_id: int = 0
-    sep_token_id: int = 2495
-    space_token_id: int = 2496
-    bos_token_id: int = 2497
-    eos_token_id: int = 2498
 
     # Mistral Specific Hyperparameters
     hidden_size: int = 512
@@ -62,5 +67,53 @@ class Config:
     tokenized_test_dir: Path = TOKENIZED_TEST_DIR
     tokenized_val_dir: Path = TOKENIZED_VALIDATION_DIR
     val_dir: Path = VALIDATION_DIR
+
+    # Token IDs
+    pad_token_id: int = 0
+
+    @property
+    def sep_token_id(self) -> int:
+        """Seperator token."""
+        return self.unique_homophones + 1
+
+    @property
+    def space_token_id(self) -> int:
+        """Space token."""
+        return self.sep_token_id + 1
+
+    @property
+    def bos_token_id(self) -> int:
+        """Beginning of sequence token."""
+        return self.space_token_id + 1
+
+    @property
+    def eos_token_id(self) -> int:
+        """End of sequence token."""
+        return self.bos_token_id + 1
+
+    @property
+    def char_offset(self) -> int:
+        """Offset for character token IDs."""
+        return self.eos_token_id + 1
+
+    def load_homophones(self) -> None:
+        """Load homophone mappings from the metadata file."""
+        homophone_path = os.path.join(DATA_DIR, HOMOPHONE_FILE)
+        if os.path.exists(homophone_path):
+            try:
+                with open(homophone_path) as f:
+                    meta = json.load(f)
+                    self.unique_homophones = int(meta["max_symbol_id"])
+            except OSError as e:
+                logger.warning("Could not read file: %s",  HOMOPHONE_FILE)
+                logger.warning("Using default value: %d", self.unique_homophones)
+                logger.warning("Error details: %s", str(e))
+            except (ValueError, KeyError) as e:
+                logger.warning("Invalid or missing data in: %s", HOMOPHONE_FILE)
+                logger.warning("Using default value: %d", self.unique_homophones)
+                logger.warning("Error details: %s", str(e))
+
+        raw = self.unique_homophones + self.unique_letters + BUFFER
+        self.vocab_size = (raw + 63) // 64 * 64 # Padded to nearest multiple of 64 for L4 Ada Lovelace Tensor Cores
 
 cfg = Config()

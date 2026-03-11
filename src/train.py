@@ -59,22 +59,33 @@ def safe_pad_collate(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Te
         "labels": labels_padded,
     }
 
+def preprocess_logits_for_metrics(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    """Applies argmax dynamically to each batch's logits during evaluation.
+
+    This vital Memory Management strategy prevents OOM errors by avoiding
+    the accumulation of [Batch, Seq, Vocab] float tensors in GPU memory.
+    """
+    if isinstance(logits, tuple):
+        logits = logits[0]
+    return logits.argmax(dim=-1)
+
 def compute_metrics(
     eval_preds: EvalPrediction | tuple[np.ndarray, np.ndarray],
 ) -> dict[str, float]:
     """Compute symbol error rate (SER) while ignoring padded labels."""
     if isinstance(eval_preds, tuple):
-        logits, labels = eval_preds
+        predictions, labels = eval_preds
     else:
-        logits = eval_preds.predictions
+        predictions = eval_preds.predictions
         labels = eval_preds.label_ids
 
-    if isinstance(logits, tuple):
-        logits = logits[0]
+    if isinstance(predictions, tuple):
+        predictions = predictions[0]
     if isinstance(labels, tuple):
         labels = labels[0]
 
-    predictions = np.argmax(logits, axis=-1)
+    if predictions.ndim == 3:
+        predictions = np.argmax(predictions, axis=-1)
 
     total_errors = 0
     total_symbols = 0
@@ -94,10 +105,7 @@ def compute_metrics(
 
 
 def train() -> None:
-    """Main training loop using Hugging Face's Trainer API.
-
-    Handles dataset loading, model instantiation, training arguments setup, and checkpointing logic.
-    """
+    """Main training loop using Hugging Face's Trainer API."""
     model = get_model()
 
     if cfg.grad_checkpoint:
@@ -118,7 +126,9 @@ def train() -> None:
         output_dir=str(cfg.output_dir),
         num_train_epochs=cfg.epochs,
         per_device_train_batch_size=cfg.batch_size,
+        per_device_eval_batch_size=cfg.batch_size,
         gradient_accumulation_steps=cfg.grad_accum,
+        eval_accumulation_steps=4,
         learning_rate=cfg.learning_rate,
         weight_decay=0.01,
         bf16=cfg.bf16,
@@ -140,14 +150,10 @@ def train() -> None:
         eval_dataset=test_ds,
         data_collator=safe_pad_collate,
         compute_metrics=compute_metrics,
+        preprocess_logits_for_metrics=preprocess_logits_for_metrics,
     )
 
-    if trainer.is_world_process_zero():
-        pass
-
     last_checkpoint = get_last_checkpoint(str(cfg.output_dir))
-    if last_checkpoint is not None and trainer.is_world_process_zero():
-        pass
 
     trainer.train(resume_from_checkpoint=last_checkpoint)
 

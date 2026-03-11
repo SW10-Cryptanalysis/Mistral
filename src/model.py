@@ -1,9 +1,16 @@
 import os
 import math
+import logging
 import torch
 import torch.nn as nn
 from transformers import MistralConfig, MistralForCausalLM
+from easy_logging import EasyFormatter
 from src.config import cfg
+
+handler = logging.StreamHandler()
+handler.setFormatter(EasyFormatter())
+logger = logging.getLogger(__name__)
+logger.addHandler(handler)
 
 def apply_custom_initialization(model: nn.Module, config: MistralConfig) -> None:
     """Applies variance-preserving weight initialization based on Han (2025).
@@ -11,8 +18,8 @@ def apply_custom_initialization(model: nn.Module, config: MistralConfig) -> None
     Enforces a stable standard deviation band (0.02) and depth-dependent residual scaling.
     """
     std = 0.02
-    # Residual scaling factor: 1 / sqrt(2 * Layers)
-    scaled_std = std / math.sqrt(2 * config.num_hidden_layers)
+    num_layers = config.num_hidden_layers or 1
+    scaled_std = std / math.sqrt(2 * num_layers)
 
     for name, param in model.named_parameters():
         if not param.requires_grad:
@@ -49,15 +56,18 @@ def get_model() -> MistralForCausalLM:
         pad_token_id=cfg.pad_token_id,
         bos_token_id=cfg.bos_token_id,
         eos_token_id=cfg.eos_token_id,
-        torch_dtype=torch.bfloat16,
-        attn_implementation="flash_attention_2" if torch.cuda.is_available() else "sdpa",
     )
 
-    model = MistralForCausalLM(config).to(torch.bfloat16)
+    target_attn = "flash_attention_2" if torch.cuda.is_available() else "sdpa"
+    config._attn_implementation = target_attn
+
+    model: MistralForCausalLM = MistralForCausalLM(config).to(torch.bfloat16)  # type: ignore[assignment]
+
+    active_attn = getattr(model.config, "_attn_implementation", "unknown")
+    if int(os.environ.get("LOCAL_RANK", 0)) == 0:
+        logger.info(f"Mistral Architecture Initialized. Parameters: {model.num_parameters() / 1e6:.1f}M")
+        logger.info(f"Verified Attention Implementation: {active_attn}")
 
     apply_custom_initialization(model, config)
-
-    if int(os.environ.get("LOCAL_RANK", 0)) == 0:
-        pass
 
     return model
