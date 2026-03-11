@@ -105,3 +105,20 @@ def test_train_execution(mocker):
     mock_trainer_class.assert_called_once()
     mock_trainer_instance.train.assert_called_once_with(resume_from_checkpoint="dummy/checkpoint/path")
     mock_trainer_instance.save_model.assert_called_once()
+
+def test_train_bfloat16_configuration(mocker):
+    mocker.patch("src.train.cfg.bf16", True)
+
+    mocker.patch("src.train.get_model")
+    mocker.patch("src.train.PretokenizedCipherDataset")
+    mocker.patch("src.train.Trainer")
+    mocker.patch("src.train.get_last_checkpoint")
+
+    mock_training_args = mocker.patch("src.train.TrainingArguments")
+
+    train.train()
+
+    mock_training_args.assert_called_once()
+    _, kwargs = mock_training_args.call_args
+
+    assert kwargs.get("bf16") is True

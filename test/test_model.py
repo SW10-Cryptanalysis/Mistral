@@ -50,7 +50,7 @@ def test_get_model_sdpa_fallback(mocker, tiny_cfg):
 
     attn_impl = getattr(test_model.config, "_attn_implementation", getattr(test_model.config, "attn_implementation", None))
     assert attn_impl == "sdpa"
-    assert test_model.dtype == torch.bfloat16
+    assert test_model.dtype == torch.float32
 
 def test_get_model_flash_attention(mocker, tiny_cfg):
     mock_cuda = mocker.patch("src.model.torch.cuda.is_available")

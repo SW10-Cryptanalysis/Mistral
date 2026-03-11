@@ -57,13 +57,12 @@ def get_model() -> MistralForCausalLM:
         pad_token_id=cfg.pad_token_id,
         bos_token_id=cfg.bos_token_id,
         eos_token_id=cfg.eos_token_id,
-        torch_dtype=torch.bfloat16,
     )
 
     target_attn = "flash_attention_2" if torch.cuda.is_available() else "sdpa"
     config._attn_implementation = target_attn
 
-    model: MistralForCausalLM = MistralForCausalLM(config).to(torch.bfloat16)  # type: ignore[assignment]
+    model: MistralForCausalLM = MistralForCausalLM(config)
 
     active_attn = getattr(model.config, "_attn_implementation", "unknown")
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
