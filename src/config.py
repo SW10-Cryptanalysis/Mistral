@@ -8,6 +8,7 @@ from easy_logging import EasyFormatter
 handler = logging.StreamHandler()
 handler.setFormatter(EasyFormatter())
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 TEXT_LEN = 9961

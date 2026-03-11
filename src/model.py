@@ -10,6 +10,7 @@ from src.config import cfg
 handler = logging.StreamHandler()
 handler.setFormatter(EasyFormatter())
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 def apply_custom_initialization(model: nn.Module, config: MistralConfig) -> None:
