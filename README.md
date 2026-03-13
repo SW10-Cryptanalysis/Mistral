@@ -3,10 +3,11 @@ Training a Mistral model from scratch to solve long homophonic substitution ciph
 
 ## How to train the model
 ### Start one training of 12 hours
+#### Train without spaces
 - `sbatch train.slurm`
 
-### Start multiple training jobs dependent of eachother
-- `./chain_train.sh`
+#### Train with spaces
+- `sbatch train.slurm --with-spaces`
 
 ### How to cancel the jobs
 - `scancel --name=mistral_cipher`
