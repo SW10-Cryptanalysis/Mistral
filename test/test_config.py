@@ -1,6 +1,7 @@
 from pathlib import Path
 from src.config import Config, cfg
 
+
 def test_config_defaults():
     assert cfg.vocab_size == 2560
     assert cfg.max_context == 20000
@@ -33,6 +34,7 @@ def test_config_defaults():
     assert isinstance(cfg.grad_checkpoint, bool)
     assert isinstance(cfg.torch_compile, bool)
     assert isinstance(cfg.bf16, bool)
+    assert isinstance(cfg.use_spaces, bool)
     assert isinstance(cfg.logging_steps, int)
     assert isinstance(cfg.save_steps, int)
     assert isinstance(cfg.eval_steps, int)
@@ -41,7 +43,10 @@ def test_config_defaults():
     assert isinstance(cfg.tokenized_training_dir, Path)
     assert isinstance(cfg.tokenized_test_dir, Path)
     assert isinstance(cfg.tokenized_val_dir, Path)
-    assert isinstance(cfg.val_dir, Path)
+    assert isinstance(cfg.tokenized_spaced_train_dir, Path)
+    assert isinstance(cfg.tokenized_spaced_val_dir, Path)
+    assert isinstance(cfg.tokenized_spaced_test_dir, Path)
+
 
 def test_config_paths():
     assert isinstance(cfg.output_dir, Path)
@@ -49,6 +54,7 @@ def test_config_paths():
 
     assert cfg.output_dir.name == "outputs"
     assert "Ciphers" in str(cfg.tokenized_training_dir)
+
 
 def test_custom_config_instantiation():
     custom_cfg = Config(vocab_size=3000, batch_size=8)

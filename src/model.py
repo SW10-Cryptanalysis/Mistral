@@ -10,6 +10,7 @@ from src.config import cfg
 handler = logging.StreamHandler()
 handler.setFormatter(EasyFormatter())
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 def apply_custom_initialization(model: nn.Module, config: MistralConfig) -> None:
@@ -61,7 +62,7 @@ def get_model() -> MistralForCausalLM:
     target_attn = "flash_attention_2" if torch.cuda.is_available() else "sdpa"
     config._attn_implementation = target_attn
 
-    model: MistralForCausalLM = MistralForCausalLM(config).to(torch.bfloat16)  # type: ignore[assignment]
+    model: MistralForCausalLM = MistralForCausalLM(config)
 
     active_attn = getattr(model.config, "_attn_implementation", "unknown")
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:

@@ -1,16 +1,25 @@
 import os
-from pathlib import Path
 import torch
+import logging
 import numpy as np
+from pathlib import Path
 from datasets import load_from_disk
 from torch.utils.data import Dataset
 from transformers import EvalPrediction, Trainer, TrainingArguments
 from transformers.trainer_utils import get_last_checkpoint
 from src.config import cfg
 from src.model import get_model
+from easy_logging import EasyFormatter
 
-torch.set_float32_matmul_precision("high")
+handler = logging.StreamHandler()
+handler.setFormatter(EasyFormatter())
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(handler)
+
+torch.backends.cuda.matmul.fp32_precision = "tf32"
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+
 
 class PretokenizedCipherDataset(Dataset):
     """Dataset wrapper for loading pre-tokenized cipher samples from disk."""
@@ -29,14 +38,23 @@ class PretokenizedCipherDataset(Dataset):
         """Fetch one sample and convert token arrays into `torch.long` tensors."""
         item = self.hf_dataset[idx]
 
+        if (
+            len(item["input_ids"]) > cfg.max_context
+            or len(item["labels"]) > cfg.max_context
+        ):
+            logger.info(
+                f"Sample {idx} truncated: input_ids {len(item['input_ids'])} -> {cfg.max_context}, labels {len(item['labels'])} -> {cfg.max_context}",
+            )
+
         # Mandatory Training Objective (Equal Loss Weighting)
-        input_ids = item["input_ids"][:cfg.max_context]
-        labels = item["labels"][:cfg.max_context]
+        input_ids = item["input_ids"][: cfg.max_context]
+        labels = item["labels"][: cfg.max_context]
 
         return {
             "input_ids": torch.tensor(input_ids, dtype=torch.long),
             "labels": torch.tensor(labels, dtype=torch.long),
         }
+
 
 def safe_pad_collate(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
     """Pad variable-length token tensors and build the attention mask."""
@@ -44,11 +62,15 @@ def safe_pad_collate(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Te
     labels = [item["labels"] for item in batch]
 
     input_ids_padded = torch.nn.utils.rnn.pad_sequence(
-        input_ids, batch_first=True, padding_value=cfg.pad_token_id,
+        input_ids,
+        batch_first=True,
+        padding_value=cfg.pad_token_id,
     )
 
     labels_padded = torch.nn.utils.rnn.pad_sequence(
-        labels, batch_first=True, padding_value=-100,
+        labels,
+        batch_first=True,
+        padding_value=-100,
     )
 
     attention_mask = (input_ids_padded != cfg.pad_token_id).long()
@@ -59,7 +81,11 @@ def safe_pad_collate(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Te
         "labels": labels_padded,
     }
 
-def preprocess_logits_for_metrics(logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+
+def preprocess_logits_for_metrics(
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+) -> torch.Tensor:
     """Applies argmax dynamically to each batch's logits during evaluation.
 
     This vital Memory Management strategy prevents OOM errors by avoiding
@@ -68,6 +94,7 @@ def preprocess_logits_for_metrics(logits: torch.Tensor, labels: torch.Tensor) ->
     if isinstance(logits, tuple):
         logits = logits[0]
     return logits.argmax(dim=-1)
+
 
 def compute_metrics(
     eval_preds: EvalPrediction | tuple[np.ndarray, np.ndarray],
@@ -111,8 +138,14 @@ def train() -> None:
     if cfg.grad_checkpoint:
         model.gradient_checkpointing_enable()
 
-    train_ds = PretokenizedCipherDataset(cfg.tokenized_training_dir)
-    test_ds = PretokenizedCipherDataset(cfg.tokenized_test_dir)
+    if cfg.use_spaces:
+        logger.info("Using space tokens in training.")
+        train_ds = PretokenizedCipherDataset(cfg.tokenized_spaced_train_dir)
+        val_ds = PretokenizedCipherDataset(cfg.tokenized_spaced_val_dir)
+    else:
+        logger.info("Not using space tokens in training.")
+        train_ds = PretokenizedCipherDataset(cfg.tokenized_training_dir)
+        val_ds = PretokenizedCipherDataset(cfg.tokenized_val_dir)
 
     fsdp_config = {
         "transformer_layer_cls_to_wrap": ["MistralDecoderLayer"],
@@ -147,7 +180,7 @@ def train() -> None:
         model=model,
         args=train_args,
         train_dataset=train_ds,
-        eval_dataset=test_ds,
+        eval_dataset=val_ds,
         data_collator=safe_pad_collate,
         compute_metrics=compute_metrics,
         preprocess_logits_for_metrics=preprocess_logits_for_metrics,
@@ -159,6 +192,7 @@ def train() -> None:
 
     if trainer.is_world_process_zero():
         trainer.save_model(os.path.join(str(cfg.output_dir), "final_model"))
+
 
 if __name__ == "__main__":
     train()

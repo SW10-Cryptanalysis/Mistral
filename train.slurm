@@ -61,6 +61,6 @@ MASTER_PORT=$((10000 + $RANDOM % 20000))
 uv run torchrun \
     --nproc_per_node=4 \
     --master_port=$MASTER_PORT \
-    src/train.py 2>&1 | tee -a logs/train_live_${SLURM_JOB_ID}.log
+    -m src.train 2>&1 | tee -a logs/train_live_${SLURM_JOB_ID}.log
 
 echo "Job finished at $(date)" | tee -a logs/train_live_${SLURM_JOB_ID}.log
