@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument(
     "--without-spaces",
     action="store_true",
-    default=True,
+    default=False,
     help="If enabled the model trains with space tokens in the training dataset",
 )
 cli_args, _ = parser.parse_known_args()
