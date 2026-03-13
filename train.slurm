@@ -56,7 +56,7 @@ MASTER_PORT=$((10000 + $RANDOM % 20000))
 
 # Launch with torchrun. Hugging Face Trainer automatically detects the distributed 
 # environment spawned by torchrun and applies the FSDP arguments defined in train.py
-# "$@" ensures any flags like --with-spaces are injected directly into the Python call.
+# "$@" ensures any flags like --without-spaces are injected directly into the Python call.
 uv run torchrun \
     --nproc_per_node=4 \
     --master_port=$MASTER_PORT \
