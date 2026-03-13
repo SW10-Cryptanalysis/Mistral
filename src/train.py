@@ -38,6 +38,14 @@ class PretokenizedCipherDataset(Dataset):
         """Fetch one sample and convert token arrays into `torch.long` tensors."""
         item = self.hf_dataset[idx]
 
+        if (
+            len(item["input_ids"]) > cfg.max_context
+            or len(item["labels"]) > cfg.max_context
+        ):
+            logger.info(
+                f"Sample {idx} truncated: input_ids {len(item['input_ids'])} -> {cfg.max_context}, labels {len(item['labels'])} -> {cfg.max_context}",
+            )
+
         # Mandatory Training Objective (Equal Loss Weighting)
         input_ids = item["input_ids"][: cfg.max_context]
         labels = item["labels"][: cfg.max_context]
@@ -75,7 +83,8 @@ def safe_pad_collate(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Te
 
 
 def preprocess_logits_for_metrics(
-    logits: torch.Tensor, labels: torch.Tensor,
+    logits: torch.Tensor,
+    labels: torch.Tensor,
 ) -> torch.Tensor:
     """Applies argmax dynamically to each batch's logits during evaluation.
 
