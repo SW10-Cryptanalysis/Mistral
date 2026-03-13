@@ -14,9 +14,9 @@ logger.addHandler(handler)
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument(
-    "--with-spaces",
+    "--without-spaces",
     action="store_true",
-    default=False,
+    default=True,
     help="If enabled the model trains with space tokens in the training dataset",
 )
 cli_args, _ = parser.parse_known_args()
