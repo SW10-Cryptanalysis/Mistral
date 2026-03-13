@@ -68,7 +68,7 @@ class Config:
     grad_checkpoint: bool = True
     torch_compile: bool = False
     bf16: bool = True
-    use_spaces: bool = cli_args.with_spaces
+    use_spaces: bool = cli_args.without_spaces
 
     # STEPS
     logging_steps: int = 10
