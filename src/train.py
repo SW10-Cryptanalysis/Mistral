@@ -190,8 +190,14 @@ def train() -> None:
 
     trainer.train(resume_from_checkpoint=last_checkpoint)
 
+    final_model_name = "final_model"
+    if cfg.use_spaces:
+        final_model_name += "_with_spaces"
+    else:
+        final_model_name += "_no_spaces"
+
     if trainer.is_world_process_zero():
-        trainer.save_model(os.path.join(str(cfg.output_dir), "final_model"))
+        trainer.save_model(os.path.join(str(cfg.output_dir), final_model_name))
 
 
 if __name__ == "__main__":
