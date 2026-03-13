@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import argparse
 from dataclasses import dataclass
 from pathlib import Path
 from easy_logging import EasyFormatter
@@ -11,9 +12,18 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument(
+    "--without-spaces",
+    action="store_true",
+    default=False,
+    help="If enabled the model trains without space tokens in the training dataset",
+)
+cli_args, _ = parser.parse_known_args()
+
 TEXT_LEN = 9961
 TOTAL_SEQ = TEXT_LEN * 2
-BUFFER = 78
+BUFFER = 178
 UNIQUE_HOMOPHONE_COUNT = 2494
 
 DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
@@ -39,7 +49,7 @@ class Config:
     vocab_size: int = (
         2560  # Padded to nearest multiple of 64 for L4 Ada Lovelace Tensor Cores
     )
-    max_context: int = TOTAL_SEQ + BUFFER  # 20000 exactly
+    max_context: int = TOTAL_SEQ + BUFFER  # 20100 exactly
 
     # Mistral Specific Hyperparameters
     hidden_size: int = 512
@@ -58,7 +68,7 @@ class Config:
     grad_checkpoint: bool = True
     torch_compile: bool = False
     bf16: bool = True
-    use_spaces: bool = True
+    use_spaces: bool = not cli_args.without_spaces
 
     # STEPS
     logging_steps: int = 10

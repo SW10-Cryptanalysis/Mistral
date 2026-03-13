@@ -4,7 +4,7 @@ from src.config import Config, cfg
 
 def test_config_defaults():
     assert cfg.vocab_size == 2560
-    assert cfg.max_context == 20000
+    assert cfg.max_context == 20100
     assert cfg.pad_token_id == 0
     assert cfg.sep_token_id == 2495
     assert cfg.space_token_id == 2496

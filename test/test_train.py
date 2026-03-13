@@ -143,15 +143,23 @@ def test_train_use_spaces_enabled(mocker):
 
     mocker.patch("src.train.get_model")
     mock_ds_class = mocker.patch("src.train.PretokenizedCipherDataset")
-    mocker.patch("src.train.Trainer")
+    mock_trainer_class = mocker.patch("src.train.Trainer")
     mocker.patch("src.train.get_last_checkpoint")
     mocker.patch("src.train.TrainingArguments")
+    mock_trainer_instance = mocker.Mock()
+    mock_trainer_instance.is_world_process_zero.return_value = True
+    mock_trainer_class.return_value = mock_trainer_instance
 
     train.train()
 
     # Check that constructor was called with the spaced paths
     mock_ds_class.assert_any_call(spaced_train)
     mock_ds_class.assert_any_call(spaced_val)
+
+    mock_trainer_instance.save_model.assert_called_once()
+    args, _ = mock_trainer_instance.save_model.call_args
+    save_path = str(args[0])
+    assert save_path.endswith("final_model_with_spaces")
 
 
 def test_train_use_spaces_disabled(mocker):
@@ -165,12 +173,19 @@ def test_train_use_spaces_disabled(mocker):
 
     mocker.patch("src.train.get_model")
     mock_ds_class = mocker.patch("src.train.PretokenizedCipherDataset")
-    mocker.patch("src.train.Trainer")
+    mock_trainer_class = mocker.patch("src.train.Trainer")
     mocker.patch("src.train.get_last_checkpoint")
     mocker.patch("src.train.TrainingArguments")
+    mock_trainer_instance = mocker.Mock()
+    mock_trainer_instance.is_world_process_zero.return_value = True
+    mock_trainer_class.return_value = mock_trainer_instance
 
     train.train()
 
     # Check that constructor was called with the normal paths
     mock_ds_class.assert_any_call(normal_train)
     mock_ds_class.assert_any_call(normal_val)
+    mock_trainer_instance.save_model.assert_called_once()
+    args, _ = mock_trainer_instance.save_model.call_args
+    save_path = str(args[0])
+    assert save_path.endswith("final_model_no_spaces")
