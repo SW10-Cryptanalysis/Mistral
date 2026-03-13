@@ -1,8 +1,10 @@
 import pytest
 import torch
 import numpy as np
+from pathlib import Path
 from src import train
 from src.config import Config
+
 
 @pytest.fixture
 def dummy_cfg():
@@ -12,6 +14,7 @@ def dummy_cfg():
     cfg.pad_token_id = 0
     return cfg
 
+
 @pytest.fixture
 def mock_hf_dataset():
     """Simulates a loaded Hugging Face dataset."""
@@ -19,6 +22,7 @@ def mock_hf_dataset():
         {"input_ids": [1, 2, 3, 4, 5, 6, 7], "labels": [1, 2, 3, 4, 5, 6, 7]},
         {"input_ids": [1, 2], "labels": [1, 2]},
     ]
+
 
 def test_pretokenized_cipher_dataset(mocker, mock_hf_dataset, dummy_cfg):
     mock_load = mocker.patch("src.train.load_from_disk")
@@ -39,10 +43,11 @@ def test_pretokenized_cipher_dataset(mocker, mock_hf_dataset, dummy_cfg):
     item_1 = dataset[1]
     assert item_1["input_ids"].tolist() == [1, 2]
 
+
 def test_safe_pad_collate(mocker, dummy_cfg):
     batch = [
         {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([4, 5, 6])},
-        {"input_ids": torch.tensor([1]), "labels": torch.tensor([4])}
+        {"input_ids": torch.tensor([1]), "labels": torch.tensor([4])},
     ]
 
     mocker.patch("src.train.cfg", dummy_cfg)
@@ -55,6 +60,7 @@ def test_safe_pad_collate(mocker, dummy_cfg):
     assert collated["labels"][1].tolist() == [4, -100, -100]
     assert collated["attention_mask"][1].tolist() == [1, 0, 0]
 
+
 def test_compute_metrics():
     logits = np.zeros((2, 3, 4))
 
@@ -66,15 +72,13 @@ def test_compute_metrics():
     logits[1, 1, 2] = 1
     logits[1, 2, 0] = 1
 
-    labels = np.array([
-        [1, 2, 0],
-        [1, -100, 0]
-    ])
+    labels = np.array([[1, 2, 0], [1, -100, 0]])
 
     eval_preds = (logits, labels)
     metrics = train.compute_metrics(eval_preds)
 
     assert np.isclose(metrics["ser"], 0.2)
+
 
 def test_compute_metrics_zero_symbols():
     logits = np.zeros((1, 2, 4))
@@ -82,6 +86,7 @@ def test_compute_metrics_zero_symbols():
 
     metrics = train.compute_metrics((logits, labels))
     assert metrics["ser"] == 0
+
 
 def test_train_execution(mocker):
     mocker.patch("src.train.cfg.bf16", False)
@@ -103,8 +108,11 @@ def test_train_execution(mocker):
 
     mock_model_instance.gradient_checkpointing_enable.assert_called_once()
     mock_trainer_class.assert_called_once()
-    mock_trainer_instance.train.assert_called_once_with(resume_from_checkpoint="dummy/checkpoint/path")
+    mock_trainer_instance.train.assert_called_once_with(
+        resume_from_checkpoint="dummy/checkpoint/path"
+    )
     mock_trainer_instance.save_model.assert_called_once()
+
 
 def test_train_bfloat16_configuration(mocker):
     mocker.patch("src.train.cfg.bf16", True)
@@ -122,3 +130,47 @@ def test_train_bfloat16_configuration(mocker):
     _, kwargs = mock_training_args.call_args
 
     assert kwargs.get("bf16") is True
+
+
+def test_train_use_spaces_enabled(mocker):
+    """Test that spaced directories are used when cfg.use_spaces is True."""
+    mocker.patch("src.train.cfg.use_spaces", True)
+
+    spaced_train = Path("spaced/train")
+    spaced_val = Path("spaced/val")
+    mocker.patch("src.train.cfg.tokenized_spaced_train_dir", spaced_train)
+    mocker.patch("src.train.cfg.tokenized_spaced_val_dir", spaced_val)
+
+    mocker.patch("src.train.get_model")
+    mock_ds_class = mocker.patch("src.train.PretokenizedCipherDataset")
+    mocker.patch("src.train.Trainer")
+    mocker.patch("src.train.get_last_checkpoint")
+    mocker.patch("src.train.TrainingArguments")
+
+    train.train()
+
+    # Check that constructor was called with the spaced paths
+    mock_ds_class.assert_any_call(spaced_train)
+    mock_ds_class.assert_any_call(spaced_val)
+
+
+def test_train_use_spaces_disabled(mocker):
+    """Test that normal directories are used when cfg.use_spaces is False."""
+    mocker.patch("src.train.cfg.use_spaces", False)
+
+    normal_train = Path("normal/train")
+    normal_val = Path("normal/val")
+    mocker.patch("src.train.cfg.tokenized_training_dir", normal_train)
+    mocker.patch("src.train.cfg.tokenized_val_dir", normal_val)
+
+    mocker.patch("src.train.get_model")
+    mock_ds_class = mocker.patch("src.train.PretokenizedCipherDataset")
+    mocker.patch("src.train.Trainer")
+    mocker.patch("src.train.get_last_checkpoint")
+    mocker.patch("src.train.TrainingArguments")
+
+    train.train()
+
+    # Check that constructor was called with the normal paths
+    mock_ds_class.assert_any_call(normal_train)
+    mock_ds_class.assert_any_call(normal_val)

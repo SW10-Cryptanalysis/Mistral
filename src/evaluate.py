@@ -1,5 +1,4 @@
 import json
-import glob
 import os
 import logging
 import torch
@@ -13,6 +12,7 @@ handler.setFormatter(EasyFormatter())
 logger = logging.getLogger("evaluate.py")
 logger.addHandler(handler)
 
+
 def evaluate() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -21,7 +21,6 @@ def evaluate() -> None:
     if not os.path.exists(model_path):
         logger.warning("Model path not found: %s", model_path)
         return
-
 
     model = MistralForCausalLM.from_pretrained(
         model_path,
@@ -37,11 +36,12 @@ def evaluate() -> None:
     id_to_char = {i + char_offset: char for i, char in enumerate(chars)}
 
     # 3. Load Test Files
-    test_files = glob.glob(os.path.join(cfg.val_dir, "*.json"))[:10]
-    if not test_files:
-        logger.warning("No test files found in: %s", cfg.val_dir)
-        return
+    test_dir = cfg.tokenized_spaced_test_dir if cfg.use_spaces else cfg.tokenized_test_dir
+    test_files = list(test_dir.glob("*.json"))[:10]
 
+    if not test_files:
+        logger.warning("No test files found in: %s", test_dir)
+        return
 
     for file_path in test_files:
         with open(file_path) as f:
@@ -58,7 +58,6 @@ def evaluate() -> None:
         input_tensor = torch.tensor([input_ids], dtype=torch.long).to(device)
         attention_mask = torch.ones_like(input_tensor).to(device)
 
-
         # 4. Use HF's optimized Generation API
         with torch.no_grad():
             outputs = model.generate(
@@ -71,18 +70,19 @@ def evaluate() -> None:
                 use_cache=True,
             )
 
-        generated_ids = outputs[0][input_tensor.shape[1]:].tolist()
+        generated_ids = outputs[0][input_tensor.shape[1] :].tolist()
 
         # 5. Decode
         pred_plain = "".join([id_to_char.get(idx, "?") for idx in generated_ids])
 
         # Calculate SER
-        true_plain_subset = true_plain[:len(pred_plain)]
-        ser = Levenshtein.distance(true_plain_subset, pred_plain) / max(len(true_plain_subset), 1)
+        true_plain_subset = true_plain[: len(pred_plain)]
+        ser = Levenshtein.distance(true_plain_subset, pred_plain) / max(
+            len(true_plain_subset), 1,
+        )
 
         logger.info("Pred Plaintext: %s", pred_plain)
         logger.info("Symbol Error Rate (SER): %.4f", ser)
-
 
 
 if __name__ == "__main__":
