@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import argparse
 from dataclasses import dataclass
 from pathlib import Path
 from easy_logging import EasyFormatter
@@ -10,6 +11,15 @@ handler.setFormatter(EasyFormatter())
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(handler)
+
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument(
+    "--with-spaces",
+    action="store_true",
+    default=False,
+    help="If enabled the model trains with space tokens in the training dataset",
+)
+cli_args, _ = parser.parse_known_args()
 
 TEXT_LEN = 9961
 TOTAL_SEQ = TEXT_LEN * 2
@@ -58,7 +68,7 @@ class Config:
     grad_checkpoint: bool = True
     torch_compile: bool = False
     bf16: bool = True
-    use_spaces: bool = True
+    use_spaces: bool = cli_args.with_spaces
 
     # STEPS
     logging_steps: int = 10
