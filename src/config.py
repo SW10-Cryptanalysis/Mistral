@@ -23,7 +23,7 @@ cli_args, _ = parser.parse_known_args()
 
 TEXT_LEN = 9961
 TOTAL_SEQ = TEXT_LEN * 2
-BUFFER = 78
+BUFFER = 178
 UNIQUE_HOMOPHONE_COUNT = 2494
 
 DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
@@ -49,7 +49,7 @@ class Config:
     vocab_size: int = (
         2560  # Padded to nearest multiple of 64 for L4 Ada Lovelace Tensor Cores
     )
-    max_context: int = TOTAL_SEQ + BUFFER  # 20000 exactly
+    max_context: int = TOTAL_SEQ + BUFFER  # 20100 exactly
 
     # Mistral Specific Hyperparameters
     hidden_size: int = 512
