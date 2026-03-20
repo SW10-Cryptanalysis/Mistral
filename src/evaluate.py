@@ -56,6 +56,7 @@ def evaluate() -> None:
         max_cipher_len = (cfg.max_context // 2) - 100
         if len(cipher_ids) > max_cipher_len:
             cipher_ids = cipher_ids[:max_cipher_len]
+            true_plain = true_plain[:max_cipher_len]
 
         input_ids = cipher_ids + [sep_token]
         input_tensor = torch.tensor([input_ids], dtype=torch.long).to(device)
@@ -86,11 +87,7 @@ def evaluate() -> None:
         pred_plain = "".join([id_to_char.get(idx, "?") for idx in generated_ids])
 
         # Calculate SER
-        true_plain_subset = true_plain[: len(pred_plain)]
-        ser = Levenshtein.distance(true_plain_subset, pred_plain) / max(
-            len(true_plain_subset),
-            1,
-        )
+        ser = Levenshtein.distance(true_plain, pred_plain) / max(len(true_plain), 1)
 
         logger.info("Pred Plaintext: %s", pred_plain)
         logger.info("Symbol Error Rate (SER): %.4f", ser)

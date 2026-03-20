@@ -202,6 +202,11 @@ def compute_metrics(
     if predictions.ndim == 3:
         predictions = np.argmax(predictions, axis=-1)
 
+    # We drop the last prediction (it predicts what comes after the sequence ends)
+    # We drop the first label (the model doesn't predict the BOS token)
+    predictions = predictions[:, :-1]
+    labels = labels[:, 1:]
+
     total_errors = 0
     total_symbols = 0
 
