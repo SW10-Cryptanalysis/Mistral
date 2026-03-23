@@ -69,6 +69,9 @@ def evaluate() -> None:
             outputs = model.generate(
                 input_ids=input_tensor,
                 attention_mask=attention_mask,
+                min_new_tokens=len(
+                    cipher_ids,
+                ),
                 max_new_tokens=len(
                     cipher_ids,
                 ),  # Enforce strict output length equal to input cipher length
