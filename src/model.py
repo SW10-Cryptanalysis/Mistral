@@ -71,13 +71,7 @@ def get_model() -> MistralForCausalLM:
         eos_token_id=cfg.eos_token_id,
     )
 
-    try:
-        import flash_attn  # type: ignore
-
-        target_attn = "flash_attention_2" if torch.cuda.is_available() else "sdpa"
-    except ImportError:
-        logger.warning("flash_attn not found, falling back to sdpa.")
-        target_attn = "sdpa"
+    target_attn = "flash_attention_2" if torch.cuda.is_available() else "sdpa"
     config._attn_implementation = target_attn
 
     model: MistralForCausalLM = MistralForCausalLM(config)
@@ -85,7 +79,7 @@ def get_model() -> MistralForCausalLM:
     active_attn = getattr(model.config, "_attn_implementation", "unknown")
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         logger.info(
-            f"Mistral Architecture Initialized. Parameters: {model.num_parameters() / 1e6:.1f}M"
+            f"Mistral Architecture Initialized. Parameters: {model.num_parameters() / 1e6:.1f}M",
         )
         logger.info(f"Verified Attention Implementation: {active_attn}")
 

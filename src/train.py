@@ -26,7 +26,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
-torch.set_float32_matmul_precision("high")
+torch.backends.cuda.matmul.fp32_precision = "tf32"
+torch.backends.cudnn.conv.fp32_precision = "tf32"  # type:ignore
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 

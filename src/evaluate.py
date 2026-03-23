@@ -2,7 +2,6 @@ import json
 import os
 import logging
 import torch
-import Levenshtein
 from transformers import MistralForCausalLM
 from easy_logging import EasyFormatter
 from src.config import cfg
@@ -71,7 +70,7 @@ def evaluate() -> None:
                 input_ids=input_tensor,
                 attention_mask=attention_mask,
                 max_new_tokens=len(
-                    cipher_ids
+                    cipher_ids,
                 ),  # Enforce strict output length equal to input cipher length
                 pad_token_id=cfg.pad_token_id,
                 eos_token_id=None,  # Disable early stopping on EOS
@@ -87,7 +86,7 @@ def evaluate() -> None:
         pred_plain = "".join([id_to_char.get(idx, "?") for idx in generated_ids])
 
         # 6. Positional SER
-        errors = sum(t != p for t, p in zip(true_plain, pred_plain))
+        errors = sum(t != p for t, p in zip(true_plain, pred_plain, strict=False))
         errors += abs(len(true_plain) - len(pred_plain))
         ser = errors / max(len(true_plain), 1)
 
