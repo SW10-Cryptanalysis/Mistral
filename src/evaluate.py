@@ -71,12 +71,12 @@ def evaluate() -> None:
                 attention_mask=attention_mask,
                 min_new_tokens=len(
                     cipher_ids,
-                ),
+                ),  # Enforce strict output length equal to input cipher length
                 max_new_tokens=len(
                     cipher_ids,
                 ),  # Enforce strict output length equal to input cipher length
                 pad_token_id=cfg.pad_token_id,
-                eos_token_id=None,  # Disable early stopping on EOS
+                eos_token_id=cfg.eos_token_id,
                 do_sample=False,
                 use_cache=True,
             )
