@@ -53,7 +53,7 @@ def evaluate() -> None:
         true_plain = data["plaintext"]
 
         # Prevent out-of-memory sequence bottlenecks by enforcing max_context limit
-        max_cipher_len = (cfg.max_context // 2) - 100
+        max_cipher_len = (cfg.max_context - 100) // 2
         if len(cipher_ids) > max_cipher_len:
             cipher_ids = cipher_ids[:max_cipher_len]
             true_plain = true_plain[:max_cipher_len]
