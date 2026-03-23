@@ -6,10 +6,10 @@ def test_config_defaults():
     assert cfg.vocab_size == 2560
     assert cfg.max_context == 20100
     assert cfg.pad_token_id == 0
-    assert cfg.sep_token_id == 2495
-    assert cfg.space_token_id == 2496
-    assert cfg.bos_token_id == 2497
-    assert cfg.eos_token_id == 2498
+    assert cfg.sep_token_id == 2504
+    assert cfg.space_token_id == 2505
+    assert cfg.bos_token_id == 2506
+    assert cfg.eos_token_id == 2507
 
     assert isinstance(cfg.unique_homophones, int)
     assert isinstance(cfg.unique_letters, int)

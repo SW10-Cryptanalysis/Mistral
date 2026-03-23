@@ -62,17 +62,19 @@ def test_safe_pad_collate(mocker, dummy_cfg):
 
 
 def test_compute_metrics():
-    logits = np.zeros((2, 3, 4))
+    logits = np.zeros((2, 4, 50))
 
-    logits[0, 0, 1] = 1
-    logits[0, 1, 2] = 1
-    logits[0, 2, 3] = 1
+    logits[0, 0, 20] = 1
+    logits[0, 1, 30] = 1
+    logits[0, 2, 45] = 1
+    logits[0, 3, 0] = 1
 
-    logits[1, 0, 1] = 1
-    logits[1, 1, 2] = 1
-    logits[1, 2, 0] = 1
+    logits[1, 0, 20] = 1
+    logits[1, 1, 49] = 1
+    logits[1, 2, 40] = 1
+    logits[1, 3, 0] = 1
 
-    labels = np.array([[1, 2, 0], [1, -100, 0]])
+    labels = np.array([[10, 20, 30, 40], [10, 20, -100, 40]])
 
     eval_preds = (logits, labels)
     metrics = train.compute_metrics(eval_preds)
@@ -85,7 +87,7 @@ def test_compute_metrics_zero_symbols():
     labels = np.array([[-100, -100]])
 
     metrics = train.compute_metrics((logits, labels))
-    assert metrics["ser"] == 0
+    assert metrics["ser"] == 0.0
 
 
 def test_train_execution(mocker):

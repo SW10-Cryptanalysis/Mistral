@@ -68,10 +68,10 @@ def test_evaluate_full_execution(mocker, caplog, dummy_cfg):
     mock_model = mocker.Mock()
     mock_from_pretrained.return_value = mock_model
 
-    sep_token = dummy_cfg.unique_homophones + 1
-    char_offset = sep_token + 1
+    sep_token = dummy_cfg.sep_token_id
+    char_offset = dummy_cfg.char_offset
 
-    generated_tokens = [char_offset + i for i in range(3)]  # maps to 'abc'
+    generated_tokens = [char_offset + i for i in range(3)]  # maps strictly to 'abc'
     input_cipher_ids = [100, 101, 102]
     mock_generated_sequence = input_cipher_ids + [sep_token] + generated_tokens
     mock_model.generate.return_value = torch.tensor([mock_generated_sequence])

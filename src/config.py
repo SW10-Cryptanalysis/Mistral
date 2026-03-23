@@ -24,7 +24,7 @@ cli_args, _ = parser.parse_known_args()
 TEXT_LEN = 9961
 TOTAL_SEQ = TEXT_LEN * 2
 BUFFER = 178
-UNIQUE_HOMOPHONE_COUNT = 2494
+UNIQUE_HOMOPHONE_COUNT = 2503
 
 DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
