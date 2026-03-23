@@ -17,7 +17,10 @@ def evaluate() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 1. Locate and Load Model
-    model_path = os.path.join(cfg.output_dir, "final_model")
+    final_model_name = (
+        "final_model_with_spaces" if cfg.use_spaces else "final_model_no_spaces"
+    )
+    model_path = os.path.join(cfg.output_dir, final_model_name)
     if not os.path.exists(model_path):
         logger.warning("Model path not found: %s", model_path)
         return
@@ -63,31 +66,30 @@ def evaluate() -> None:
         attention_mask = torch.ones_like(input_tensor).to(device)
 
         # 4. Use HF's optimized Generation API with Strict Length Bound
-        generation_length_limit = len(cipher_ids) + 1
-
         with torch.no_grad():
             outputs = model.generate(
                 input_ids=input_tensor,
                 attention_mask=attention_mask,
-                max_new_tokens=generation_length_limit,
+                max_new_tokens=len(
+                    cipher_ids
+                ),  # Enforce strict output length equal to input cipher length
                 pad_token_id=cfg.pad_token_id,
-                eos_token_id=cfg.eos_token_id,
+                eos_token_id=None,  # Disable early stopping on EOS
                 do_sample=False,
                 use_cache=True,
             )
 
         generated_ids = outputs[0][input_tensor.shape[1] :].tolist()
 
-        # Safely remove the EOS token to prevent dictionary miss '?' characters
-        if cfg.eos_token_id in generated_ids:
-            eos_index = generated_ids.index(cfg.eos_token_id)
-            generated_ids = generated_ids[:eos_index]
+        generated_ids = generated_ids[: len(cipher_ids)]
 
         # 5. Decode
         pred_plain = "".join([id_to_char.get(idx, "?") for idx in generated_ids])
 
-        # Calculate SER
-        ser = Levenshtein.distance(true_plain, pred_plain) / max(len(true_plain), 1)
+        # 6. Positional SER
+        errors = sum(t != p for t, p in zip(true_plain, pred_plain))
+        errors += abs(len(true_plain) - len(pred_plain))
+        ser = errors / max(len(true_plain), 1)
 
         logger.info("Pred Plaintext: %s", pred_plain)
         logger.info("Symbol Error Rate (SER): %.4f", ser)

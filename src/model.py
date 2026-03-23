@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
+
 def apply_custom_initialization(model: nn.Module, config: MistralConfig) -> None:
     """Applies variance-preserving weight initialization based on Han (2025).
 
@@ -27,7 +28,17 @@ def apply_custom_initialization(model: nn.Module, config: MistralConfig) -> None
             continue
 
         # 1. Base initialization for embeddings and Q/K/V/Gate/Up projections
-        if any(nd in name for nd in ["embed_tokens.weight", "q_proj.weight", "k_proj.weight", "v_proj.weight", "gate_proj.weight", "up_proj.weight"]):
+        if any(
+            nd in name
+            for nd in [
+                "embed_tokens.weight",
+                "q_proj.weight",
+                "k_proj.weight",
+                "v_proj.weight",
+                "gate_proj.weight",
+                "up_proj.weight",
+            ]
+        ):
             nn.init.normal_(param, mean=0.0, std=std)
 
         # 2. Depth-dependent scaling for layers writing directly to the residual stream
@@ -37,6 +48,7 @@ def apply_custom_initialization(model: nn.Module, config: MistralConfig) -> None
         # 3. LM Head (Output mapping)
         elif "lm_head.weight" in name:
             nn.init.normal_(param, mean=0.0, std=std)
+
 
 def get_model() -> MistralForCausalLM:
     """Instantiates a Mistral architecture configured for sequence-to-sequence cipher decryption.
@@ -59,14 +71,22 @@ def get_model() -> MistralForCausalLM:
         eos_token_id=cfg.eos_token_id,
     )
 
-    target_attn = "flash_attention_2" if torch.cuda.is_available() else "sdpa"
+    try:
+        import flash_attn  # type: ignore
+
+        target_attn = "flash_attention_2" if torch.cuda.is_available() else "sdpa"
+    except ImportError:
+        logger.warning("flash_attn not found, falling back to sdpa.")
+        target_attn = "sdpa"
     config._attn_implementation = target_attn
 
     model: MistralForCausalLM = MistralForCausalLM(config)
 
     active_attn = getattr(model.config, "_attn_implementation", "unknown")
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
-        logger.info(f"Mistral Architecture Initialized. Parameters: {model.num_parameters() / 1e6:.1f}M")
+        logger.info(
+            f"Mistral Architecture Initialized. Parameters: {model.num_parameters() / 1e6:.1f}M"
+        )
         logger.info(f"Verified Attention Implementation: {active_attn}")
 
     apply_custom_initialization(model, config)

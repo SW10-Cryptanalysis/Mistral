@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
-torch.backends.cuda.matmul.fp32_precision = "tf32"
-os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+torch.set_float32_matmul_precision("high")
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 
 class HardwareOptimizationCallback(TrainerCallback):
@@ -120,7 +120,7 @@ class PretokenizedCipherDataset(Dataset):
         """Load a serialized Hugging Face dataset from `directory_path`."""
         self.hf_dataset = load_from_disk(str(directory_path))
         if len(self.hf_dataset) == 0 and int(os.environ.get("LOCAL_RANK", 0)) == 0:
-            pass
+            logger.warning("Dataset at %s is empty!", directory_path)
 
     def __len__(self) -> int:
         """Return the number of examples available in the dataset."""
@@ -254,9 +254,9 @@ def train() -> None:
     fsdp_config = {
         "transformer_layer_cls_to_wrap": ["MistralDecoderLayer"],
         "backward_prefetch": "backward_pre",
-        "forward_prefetch": "True",
-        "use_orig_params": "True",
-        "sync_module_states": "True",
+        "forward_prefetch": True,
+        "use_orig_params": True,
+        "sync_module_states": True,
     }
 
     train_args = TrainingArguments(
