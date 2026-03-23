@@ -45,6 +45,7 @@ class HardwareOptimizationCallback(TrainerCallback):
     ) -> None:
         """Log the start time of the epoch."""
         self.epoch_start_time = time.time()
+        self.epoch_start_step = state.global_step
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
 
@@ -56,13 +57,16 @@ class HardwareOptimizationCallback(TrainerCallback):
     ) -> None:
         """Log performance metrics at the end of the epoch."""
         epoch_time = time.time() - self.epoch_start_time
+        steps_this_epoch = state.global_step - self.epoch_start_step
+        num_devices = max(torch.cuda.device_count(), 1)
 
         # Tokens per second (Approximate based on max context)
         total_tokens_per_epoch = (
-            state.global_step
+            steps_this_epoch
             * args.per_device_train_batch_size
             * args.gradient_accumulation_steps
             * cfg.max_context
+            * num_devices
         )
         tokens_per_sec = total_tokens_per_epoch / epoch_time if epoch_time > 0 else 0
 
