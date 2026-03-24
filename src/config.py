@@ -52,8 +52,8 @@ class Config:
     max_context: int = TOTAL_SEQ + BUFFER  # 20100 exactly
 
     # Mistral Specific Hyperparameters
-    hidden_size: int = 512
-    intermediate_size: int = 2048
+    hidden_size: int = 1024
+    intermediate_size: int = 2816
     num_hidden_layers: int = 16
     num_attention_heads: int = 16
     num_key_value_heads: int = 4
@@ -65,7 +65,7 @@ class Config:
     grad_accum: int = 1
     learning_rate: float = 3e-4
     epochs: int = 5
-    grad_checkpoint: bool = False
+    grad_checkpoint: bool = True
     torch_compile: bool = True
     bf16: bool = True
     use_spaces: bool = not cli_args.without_spaces
@@ -133,7 +133,7 @@ class Config:
 
         raw = self.unique_homophones + self.unique_letters + BUFFER
         self.vocab_size = (
-            (raw + 63) // 64 * 64
+            (raw + 255) // 256 * 256
         )  # Padded to nearest multiple of 256 for H100 Hopper Tensor Cores
 
 
