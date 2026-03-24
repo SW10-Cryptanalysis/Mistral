@@ -26,8 +26,8 @@ TOTAL_SEQ = TEXT_LEN * 2
 BUFFER = 178
 UNIQUE_HOMOPHONE_COUNT = 2503
 
-DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
-OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
+DATA_DIR = Path("/work/Ciphers")
+OUTPUT_DIR = Path("/work/Mistral/outputs")
 HOMOPHONE_FILE = "metadata.json"
 
 TOKENIZED_TRAINING_DIR = DATA_DIR / "tokenized_normal" / "Training"
@@ -47,7 +47,7 @@ class Config:
     unique_homophones: int = UNIQUE_HOMOPHONE_COUNT
     unique_letters: int = 26
     vocab_size: int = (
-        2560  # Padded to nearest multiple of 64 for L4 Ada Lovelace Tensor Cores
+        2560  # Padded to nearest multiple of 256 for H100 Hopper Tensor Cores
     )
     max_context: int = TOTAL_SEQ + BUFFER  # 20100 exactly
 
@@ -60,13 +60,13 @@ class Config:
     sliding_window: int = 20000
     rope_theta: float = 1_000_000.0
 
-    # TRAINING (AAU AI-Lab Optimization: 4-8x L4 GPUs)
-    batch_size: int = 2
-    grad_accum: int = 8
+    # TRAINING
+    batch_size: int = 16
+    grad_accum: int = 1
     learning_rate: float = 3e-4
-    epochs: int = 3
-    grad_checkpoint: bool = True
-    torch_compile: bool = False
+    epochs: int = 5
+    grad_checkpoint: bool = False
+    torch_compile: bool = True
     bf16: bool = True
     use_spaces: bool = not cli_args.without_spaces
 
@@ -134,7 +134,7 @@ class Config:
         raw = self.unique_homophones + self.unique_letters + BUFFER
         self.vocab_size = (
             (raw + 63) // 64 * 64
-        )  # Padded to nearest multiple of 64 for L4 Ada Lovelace Tensor Cores
+        )  # Padded to nearest multiple of 256 for H100 Hopper Tensor Cores
 
 
 cfg = Config()
