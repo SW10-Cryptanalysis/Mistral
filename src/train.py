@@ -252,14 +252,6 @@ def train() -> None:
         train_ds = PretokenizedCipherDataset(cfg.tokenized_training_dir)
         val_ds = PretokenizedCipherDataset(cfg.tokenized_val_dir)
 
-    fsdp_config = {
-        "transformer_layer_cls_to_wrap": ["MistralDecoderLayer"],
-        "backward_prefetch": "backward_pre",
-        "forward_prefetch": True,
-        "use_orig_params": True,
-        "sync_module_states": True,
-    }
-
     train_args = TrainingArguments(
         output_dir=str(cfg.output_dir),
         num_train_epochs=cfg.epochs,
@@ -278,8 +270,6 @@ def train() -> None:
         torch_compile=cfg.torch_compile,
         dataloader_num_workers=16,
         dataloader_prefetch_factor=2,
-        fsdp="full_shard auto_wrap" if torch.cuda.device_count() > 1 else "",
-        fsdp_config=fsdp_config if torch.cuda.device_count() > 1 else None,
         seed=run_seed,
     )
 
