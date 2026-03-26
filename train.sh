@@ -43,8 +43,8 @@ fi
 uv pip install --system -e .
 
 # 5. Flash Attention 2 Installation
-echo "Installing Flash Attention 2 (compiling for Hopper architecture)..."
-uv pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
+echo "Skipping Installing Flash Attention 2 (compiling for Hopper architecture)..."
+# uv pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 
 MASTER_PORT=$((10000 + $RANDOM % 20000))
 
