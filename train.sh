@@ -15,13 +15,12 @@ mkdir -p logs
 export HF_HUB_ENABLE_HF_TRANSFER=1
 
 # 3. Dynamically count available GPUs
-# This allows the script to adapt whether you request 1, 2, or 4 H100s
 NUM_GPUS=$(nvidia-smi --list-gpus | wc -l)
-echo "Training Job started on $(hostname) at $(date) with $NUM_GPUS GPU(s)" | tee logs/train_live.log
+echo "Training Job started on $(hostname) at $(date) with $NUM_GPUS GPU(s)"
 
 # Safely set CUDA_VISIBLE_DEVICES based on the detected count
 export CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((NUM_GPUS-1)))
-nvidia-smi | tee -a logs/train_live.log
+nvidia-smi
 
 # Ensure uv is installed 
 if ! command -v uv &> /dev/null; then
@@ -42,6 +41,9 @@ fi
 # Install project dependencies
 uv pip install --system -e .
 
+# Install hf_transfer to enable faster Hugging Face downloads
+uv pip install hf_transfer
+
 # 5. Flash Attention 2 Installation
 echo "Skipping Installing Flash Attention 2 (compiling for Hopper architecture)..."
 uv pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.0/flash_attn-2.8.3+cu130torch2.10-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl
@@ -53,6 +55,6 @@ echo "Launching torchrun with $NUM_GPUS processes..."
 uv run torchrun \
     --nproc_per_node=$NUM_GPUS \
     --master_port=$MASTER_PORT \
-    -m src.train "$@" 2>&1 | tee -a logs/train_live.log
+    -m src.train
 
-echo "Training Job finished at $(date)" | tee -a logs/train_live.log
+echo "Training Job finished at $(date)"
