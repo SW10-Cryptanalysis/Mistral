@@ -271,7 +271,6 @@ def train() -> None:
         dataloader_num_workers=16,
         dataloader_prefetch_factor=2,
         seed=run_seed,
-        max_steps=50,  # Remove after initial testing
     )
 
     trainer = Trainer(
