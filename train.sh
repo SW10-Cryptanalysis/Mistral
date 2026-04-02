@@ -38,8 +38,15 @@ if [ "$NUM_GPUS" -gt 1 ]; then
     export NCCL_IB_DISABLE=0
 fi
 
-# Install project dependencies
-uv pip install --system -e .
+# ---------------------------------------------------------
+# FIX: Create and activate a virtual environment with uv
+# ---------------------------------------------------------
+echo "Creating virtual environment..."
+uv venv
+source .venv/bin/activate
+
+# Install project dependencies (removed --system)
+uv pip install -e .
 
 # Install hf_transfer to enable faster Hugging Face downloads
 uv pip install hf_transfer
