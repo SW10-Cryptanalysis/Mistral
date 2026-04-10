@@ -141,6 +141,12 @@ class Config:
         self.vocab_size = (
             (raw + 63) // 64 * 64
         )  # Padded to nearest multiple of 64 for L4 Ada Lovelace Tensor Cores
+        logger.info(
+            f"Config initialized: unique_homophones={self.unique_homophones}, sep_token_id={self.sep_token_id}, space_token_id={self.space_token_id}, bos_token_id={self.bos_token_id}, eos_token_id={self.eos_token_id}, char_offset={self.char_offset}, vocab_size={self.vocab_size}",
+        )
+        logger.info(
+            f"Max len set to {self.max_context} based on use_spaces={self.use_spaces}"
+        )
 
 
 cfg = Config()
