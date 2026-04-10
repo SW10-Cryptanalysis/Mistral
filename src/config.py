@@ -57,9 +57,9 @@ class Config:
     rope_theta: float = 1_000_000.0
 
     # TRAINING (AAU AI-Lab Optimization: 4-8x L4 GPUs)
-    batch_size: int = 4
+    batch_size: int = 2
     grad_accum: int = 8
-    learning_rate: float = 2e-4
+    learning_rate: float = 3e-4
     epochs: int = 3
     grad_checkpoint: bool = True
     torch_compile: bool = False
