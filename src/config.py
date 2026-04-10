@@ -61,7 +61,7 @@ class Config:
     grad_accum: int = 8
     learning_rate: float = 3e-4
     epochs: int = 3
-    grad_checkpoint: bool = True
+    grad_checkpoint: bool = False
     torch_compile: bool = False
     bf16: bool = True
     use_spaces: bool = not cli_args.without_spaces
