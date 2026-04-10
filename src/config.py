@@ -46,7 +46,6 @@ class Config:
     unique_letters: int = 26
     unique_homophones: int = 0
     vocab_size: int = 0
-    max_context: int = 0
 
     # Mistral Specific Hyperparameters
     hidden_size: int = 512
@@ -86,12 +85,12 @@ class Config:
     # Token IDs
     pad_token_id: int = 0
 
-    def __post_init__(self) -> None:
+    @property
+    def max_context(self) -> int:
         """Calculate dynamic variables after the dataclass is initialized."""
         if self.use_spaces:
-            self.max_context = (MAX_PLAIN_SPACES * 2) + self.buffer
-        else:
-            self.max_context = (MAX_PLAIN_NORMAL * 2) + self.buffer
+            return (MAX_PLAIN_SPACES * 2) + self.buffer
+        return (MAX_PLAIN_NORMAL * 2) + self.buffer
 
     @property
     def sep_token_id(self) -> int:
