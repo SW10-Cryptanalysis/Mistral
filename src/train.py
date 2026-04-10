@@ -231,6 +231,16 @@ def compute_metrics(
 
 def train() -> None:
     """Main training loop using Hugging Face's Trainer API."""
+    # Safety check
+    if cfg.vocab_size == 0 or cfg.max_context == 0 or cfg.unique_homophones == 0:
+        raise ValueError(
+            f"CRITICAL CONFIG ERROR: dimension was not initialized properly!\n"
+            f"vocab_size: {cfg.vocab_size}\n"
+            f"max_context: {cfg.max_context}\n"
+            f"unique_homophones: {cfg.unique_homophones}\n"
+            f"Check the Config class and load_homophones() method.",
+        )
+
     # Seed Tracking
     run_seed = 42
     set_seed(run_seed)

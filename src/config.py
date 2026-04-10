@@ -21,10 +21,8 @@ parser.add_argument(
 )
 cli_args, _ = parser.parse_known_args()
 
-TEXT_LEN = 9961
-TOTAL_SEQ = TEXT_LEN * 2
-BUFFER = 178
-UNIQUE_HOMOPHONE_COUNT = 2503
+MAX_PLAIN_SPACES = 13077
+MAX_PLAIN_NORMAL = 10063
 
 DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
@@ -44,12 +42,11 @@ class Config:
     """Centralized model, data, and training configuration values."""
 
     # ARCHITECTURE
-    unique_homophones: int = UNIQUE_HOMOPHONE_COUNT
+    buffer: int = 10
     unique_letters: int = 26
-    vocab_size: int = (
-        2560  # Padded to nearest multiple of 64 for L4 Ada Lovelace Tensor Cores
-    )
-    max_context: int = TOTAL_SEQ + BUFFER  # 20100 exactly
+    unique_homophones: int = 0
+    vocab_size: int = 0
+    max_context: int = 0
 
     # Mistral Specific Hyperparameters
     hidden_size: int = 512
@@ -89,6 +86,13 @@ class Config:
     # Token IDs
     pad_token_id: int = 0
 
+    def __post_init__(self) -> None:
+        """Calculate dynamic variables after the dataclass is initialized."""
+        if self.use_spaces:
+            self.max_context = (MAX_PLAIN_SPACES * 2) + self.buffer
+        else:
+            self.max_context = (MAX_PLAIN_NORMAL * 2) + self.buffer
+
     @property
     def sep_token_id(self) -> int:
         """Seperator token."""
@@ -117,24 +121,28 @@ class Config:
     def load_homophones(self) -> None:
         """Load homophone mappings from the metadata file."""
         homophone_path = os.path.join(DATA_DIR, HOMOPHONE_FILE)
-        if os.path.exists(homophone_path):
-            try:
-                with open(homophone_path) as f:
-                    meta = json.load(f)
-                    self.unique_homophones = int(meta["max_symbol_id"])
-            except OSError as e:
-                logger.warning("Could not read file: %s", HOMOPHONE_FILE)
-                logger.warning("Using default value: %d", self.unique_homophones)
-                logger.warning("Error details: %s", str(e))
-            except (ValueError, KeyError) as e:
-                logger.warning("Invalid or missing data in: %s", HOMOPHONE_FILE)
-                logger.warning("Using default value: %d", self.unique_homophones)
-                logger.warning("Error details: %s", str(e))
+        if not os.path.exists(homophone_path):
+            raise FileNotFoundError(
+                f"Metadata file not found at: {homophone_path}. "
+                "Cannot determine unique_homophones — aborting.",
+                1,
+            )
+        try:
+            with open(homophone_path) as f:
+                meta = json.load(f)
+                self.unique_homophones = int(meta["max_symbol_id"])
+        except OSError as e:
+            raise OSError(f"Could not read file: {homophone_path}") from e
+        except (ValueError, KeyError) as e:
+            raise ValueError(
+                f"Invalid or missing 'max_symbol_id' in {homophone_path}",
+            ) from e
 
-        raw = self.unique_homophones + self.unique_letters + BUFFER
+        raw = self.unique_homophones + self.unique_letters + self.buffer
         self.vocab_size = (
             (raw + 63) // 64 * 64
         )  # Padded to nearest multiple of 64 for L4 Ada Lovelace Tensor Cores
 
 
 cfg = Config()
+cfg.load_homophones()
