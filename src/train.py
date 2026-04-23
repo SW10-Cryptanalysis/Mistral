@@ -194,7 +194,7 @@ def preprocess_logits_for_metrics(
 def compute_metrics(
     eval_preds: EvalPrediction | tuple[np.ndarray, np.ndarray],
 ) -> dict[str, float]:
-    """Compute symbol error rate (SER) while ignoring padded labels."""
+    """Compute symbol error rate (SER) on plaintext tokens only (after SEP)."""
     if isinstance(eval_preds, tuple):
         predictions, labels = eval_preds
     else:
@@ -209,8 +209,6 @@ def compute_metrics(
     if predictions.ndim == 3:
         predictions = np.argmax(predictions, axis=-1)
 
-    # We drop the last prediction (it predicts what comes after the sequence ends)
-    # We drop the first label (the model doesn't predict the BOS token)
     predictions = predictions[:, :-1]
     labels = labels[:, 1:]
 
@@ -219,11 +217,22 @@ def compute_metrics(
 
     for i in range(labels.shape[0]):
         # Mask out padding (-100)
-        mask = labels[i] != -100
+        pad_mask = labels[i] != -100
+
+        # Find SEP token and mask everything up to and including it
+        sep_positions = np.where(labels[i] == cfg.sep_token_id)[0]
+        if len(sep_positions) == 0:
+            logger.info(
+                f"No SEP token found in sample {i}, skipping SER calculation for this sample."
+            )
+            continue  # No SEP token found, skip sample
+        post_sep_mask = np.arange(labels.shape[1]) > sep_positions[0]
+        eos_mask = labels[i] != cfg.eos_token_id
+
+        mask = pad_mask & post_sep_mask & eos_mask
         val_labels = labels[i][mask]
         val_preds = predictions[i][mask]
 
-        # Calculate mismatches
         total_errors += np.sum(val_labels != val_preds)
         total_symbols += len(val_labels)
 
