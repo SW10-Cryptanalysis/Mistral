@@ -17,7 +17,7 @@ parser.add_argument(
     "--with-spaces",
     action="store_true",
     default=True,
-    help="If enabled the model trains without space tokens in the training dataset",
+    help="If enabled the model trains with space tokens in the training dataset",
 )
 cli_args, _ = parser.parse_known_args()
 
@@ -56,7 +56,7 @@ class Config:
     grad_checkpoint: bool = True
     torch_compile: bool = False
     bf16: bool = True
-    use_spaces: bool = not cli_args.without_spaces
+    use_spaces: bool = not cli_args.with_spaces
 
     # STEPS
     logging_steps: int = 10
