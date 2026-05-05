@@ -28,13 +28,11 @@ DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
 HOMOPHONE_FILE = "metadata.json"
 
-TOKENIZED_TRAINING_DIR = DATA_DIR / "tokenized_normal" / "Training"
-TOKENIZED_VALIDATION_DIR = DATA_DIR / "tokenized_normal" / "Validation"
-TOKENIZED_TEST_DIR = DATA_DIR / "tokenized_normal" / "Test"
+TOKENIZED_TRAINING_DIR = DATA_DIR / "tokenized_normal_truncated" / "Training"
+TOKENIZED_VALIDATION_DIR = DATA_DIR / "tokenized_normal_truncated" / "Validation"
 
 TOKENIZED_SPACED_TRAINING_DIR = DATA_DIR / "tokenized_spaced" / "Training"
 TOKENIZED_SPACED_VALIDATION_DIR = DATA_DIR / "tokenized_spaced" / "Validation"
-TOKENIZED_SPACED_TEST_DIR = DATA_DIR / "tokenized_spaced" / "Test"
 
 
 @dataclass
@@ -76,11 +74,9 @@ class Config:
     output_dir: Path = OUTPUT_DIR
     tokenized_training_dir: Path = TOKENIZED_TRAINING_DIR
     tokenized_val_dir: Path = TOKENIZED_VALIDATION_DIR
-    tokenized_test_dir: Path = TOKENIZED_TEST_DIR
 
     tokenized_spaced_train_dir: Path = TOKENIZED_SPACED_TRAINING_DIR
     tokenized_spaced_val_dir: Path = TOKENIZED_SPACED_VALIDATION_DIR
-    tokenized_spaced_test_dir: Path = TOKENIZED_SPACED_TEST_DIR
 
     # Token IDs
     pad_token_id: int = 0
@@ -147,6 +143,8 @@ class Config:
         logger.info(
             f"Max len set to {self.max_context} based on use_spaces={self.use_spaces}"
         )
+        logger.info(f"Training directory: {self.tokenized_training_dir}")
+        logger.info(f"Validation directory: {self.tokenized_val_dir}")
 
 
 cfg = Config()
