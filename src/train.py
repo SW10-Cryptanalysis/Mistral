@@ -27,7 +27,7 @@ logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 torch.backends.cuda.matmul.fp32_precision = "tf32"
-torch.backends.cudnn.conv.fp32_precision = "tf32"  # type:ignore
+torch.backends.cudnn.conv.fp32_precision = "tf32"  # type: ignore
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 
@@ -266,15 +266,15 @@ def train() -> None:
 
     if cfg.use_spaces:
         logger.info("Using space tokens in training.")
-        train_ds = PretokenizedCipherDataset(cfg.tokenized_spaced_train_dir)
-        val_ds = PretokenizedCipherDataset(cfg.tokenized_spaced_val_dir)
+        train_ds = PretokenizedCipherDataset(cfg.tokenized_train_dir)
+        val_ds = PretokenizedCipherDataset(cfg.tokenized_val_dir)
     else:
         logger.info("Not using space tokens in training.")
-        train_ds = PretokenizedCipherDataset(cfg.tokenized_training_dir)
+        train_ds = PretokenizedCipherDataset(cfg.tokenized_train_dir)
         val_ds = PretokenizedCipherDataset(cfg.tokenized_val_dir)
 
     train_args = TrainingArguments(
-        output_dir=str(cfg.output_dir),
+        output_dir=str(cfg.final_output_dir),
         num_train_epochs=cfg.epochs,
         per_device_train_batch_size=cfg.batch_size,
         per_device_eval_batch_size=cfg.batch_size,
@@ -304,7 +304,7 @@ def train() -> None:
         callbacks=[HardwareOptimizationCallback()],
     )
 
-    last_checkpoint = get_last_checkpoint(str(cfg.output_dir))
+    last_checkpoint = get_last_checkpoint(str(cfg.final_output_dir))
 
     trainer.train(resume_from_checkpoint=last_checkpoint)
 
@@ -315,7 +315,7 @@ def train() -> None:
         final_model_name += "_no_spaces"
 
     if trainer.is_world_process_zero():
-        trainer.save_model(os.path.join(str(cfg.output_dir), final_model_name))
+        trainer.save_model(os.path.join(str(cfg.final_output_dir), final_model_name))
 
 
 if __name__ == "__main__":

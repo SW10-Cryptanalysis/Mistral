@@ -28,12 +28,6 @@ DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
 HOMOPHONE_FILE = "metadata.json"
 
-TOKENIZED_TRAINING_DIR = DATA_DIR / "tokenized_normal_truncated" / "Training"
-TOKENIZED_VALIDATION_DIR = DATA_DIR / "tokenized_normal_truncated" / "Validation"
-
-TOKENIZED_SPACED_TRAINING_DIR = DATA_DIR / "tokenized_spaced" / "Training"
-TOKENIZED_SPACED_VALIDATION_DIR = DATA_DIR / "tokenized_spaced" / "Validation"
-
 
 @dataclass
 class Config:
@@ -72,11 +66,7 @@ class Config:
 
     # SYSTEM
     output_dir: Path = OUTPUT_DIR
-    tokenized_training_dir: Path = TOKENIZED_TRAINING_DIR
-    tokenized_val_dir: Path = TOKENIZED_VALIDATION_DIR
-
-    tokenized_spaced_train_dir: Path = TOKENIZED_SPACED_TRAINING_DIR
-    tokenized_spaced_val_dir: Path = TOKENIZED_SPACED_VALIDATION_DIR
+    data_dir: Path = DATA_DIR
 
     # Token IDs
     pad_token_id: int = 0
@@ -87,6 +77,24 @@ class Config:
         if self.use_spaces:
             return (MAX_PLAIN_SPACES * 2) + self.buffer
         return (MAX_PLAIN_NORMAL * 2) + self.buffer
+
+    @property
+    def final_output_dir(self) -> Path:
+        """Return the output directory path for saving fine-tuned models, differentiated by space token usage."""
+        suffix = "spaces" if self.use_spaces else "normal"
+        return self.output_dir / suffix / "_truncated"
+
+    @property
+    def tokenized_train_dir(self) -> Path:
+        """Path for tokenized training data."""
+        suffix = "spaced" if self.use_spaces else "normal"
+        return self.data_dir / f"tokenized_{suffix}_truncated" / "Training"
+
+    @property
+    def tokenized_val_dir(self) -> Path:
+        """Path for tokenized validation data."""
+        suffix = "spaced" if self.use_spaces else "normal"
+        return self.data_dir / f"tokenized_{suffix}_truncated" / "Validation"
 
     @property
     def sep_token_id(self) -> int:
@@ -143,7 +151,7 @@ class Config:
         logger.info(
             f"Max len set to {self.max_context} based on use_spaces={self.use_spaces}"
         )
-        logger.info(f"Training directory: {self.tokenized_training_dir}")
+        logger.info(f"Training directory: {self.tokenized_train_dir}")
         logger.info(f"Validation directory: {self.tokenized_val_dir}")
 
 
