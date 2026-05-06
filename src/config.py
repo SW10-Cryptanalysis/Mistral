@@ -82,19 +82,19 @@ class Config:
     def final_output_dir(self) -> Path:
         """Return the output directory path for saving fine-tuned models, differentiated by space token usage."""
         suffix = "spaces" if self.use_spaces else "normal"
-        return self.output_dir / suffix / "_truncated"
+        return self.output_dir / suffix / "_truncated_4000"
 
     @property
     def tokenized_train_dir(self) -> Path:
         """Path for tokenized training data."""
         suffix = "spaced" if self.use_spaces else "normal"
-        return self.data_dir / f"tokenized_{suffix}_truncated" / "Training"
+        return self.data_dir / f"tokenized_{suffix}_truncated_4000" / "Training"
 
     @property
     def tokenized_val_dir(self) -> Path:
         """Path for tokenized validation data."""
         suffix = "spaced" if self.use_spaces else "normal"
-        return self.data_dir / f"tokenized_{suffix}_truncated" / "Validation"
+        return self.data_dir / f"tokenized_{suffix}_truncated_4000" / "Validation"
 
     @property
     def sep_token_id(self) -> int:
