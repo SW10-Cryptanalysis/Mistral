@@ -223,7 +223,7 @@ def compute_metrics(
         sep_positions = np.where(labels[i] == cfg.sep_token_id)[0]
         if len(sep_positions) == 0:
             logger.info(
-                f"No SEP token found in sample {i}, skipping SER calculation for this sample."
+                f"No SEP token found in sample {i}, skipping SER calculation for this sample.",
             )
             continue  # No SEP token found, skip sample
         post_sep_mask = np.arange(labels.shape[1]) > sep_positions[0]
