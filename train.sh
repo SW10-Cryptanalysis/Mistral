@@ -62,6 +62,7 @@ echo "Launching torchrun with $NUM_GPUS processes..."
 uv run torchrun \
     --nproc_per_node=$NUM_GPUS \
     --master_port=$MASTER_PORT \
-    -m src.train
+    -m src.train \
+    --dataset-path 'tokenized_normal_truncated_4000'
 
 echo "Training Job finished at $(date)"

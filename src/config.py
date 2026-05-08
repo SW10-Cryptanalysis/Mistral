@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import logging
 import argparse
@@ -19,7 +20,26 @@ parser.add_argument(
     default=True,
     help="If enabled the model trains with space tokens in the training dataset",
 )
+parser.add_argument(
+    "--dataset-path",
+    type=str,
+    default=None,
+    help="Path to the dataset (e.g., 'tokenized_spaced', 'tokenized_normal_truncated_4000').",
+)
 cli_args, _ = parser.parse_known_args()
+
+_errors = []
+if cli_args.dataset_path is None:
+    _errors.append(
+        "  --dataset-path is required. Specify the dataset subdirectory (e.g., 'tokenized_normal', 'tokenized_spaced_truncated_4000').",
+    )
+
+if _errors:
+    logger.error("Missing required arguments:\n" + "\n".join(_errors))
+    logger.error(
+        "Example: sbatch train.slurm --dataset-path 'tokenized_normal_truncated_4000' --with-spaces",
+    )
+    sys.exit(1)
 
 MAX_PLAIN_SPACES = 13077
 MAX_PLAIN_NORMAL = 10063
@@ -67,6 +87,7 @@ class Config:
     # SYSTEM
     output_dir: Path = OUTPUT_DIR
     data_dir: Path = DATA_DIR
+    dataset_path: str = cli_args.dataset_path
 
     # Token IDs
     pad_token_id: int = 0
@@ -81,20 +102,17 @@ class Config:
     @property
     def final_output_dir(self) -> Path:
         """Return the output directory path for saving fine-tuned models, differentiated by space token usage."""
-        suffix = "spaces" if self.use_spaces else "normal"
-        return self.output_dir / suffix / "_truncated_4000"
+        return self.output_dir / f"{self.dataset_path}_model"
 
     @property
     def tokenized_train_dir(self) -> Path:
         """Path for tokenized training data."""
-        suffix = "spaced" if self.use_spaces else "normal"
-        return self.data_dir / f"tokenized_{suffix}_truncated_4000" / "Training"
+        return self.data_dir / self.dataset_path / "Training"
 
     @property
     def tokenized_val_dir(self) -> Path:
         """Path for tokenized validation data."""
-        suffix = "spaced" if self.use_spaces else "normal"
-        return self.data_dir / f"tokenized_{suffix}_truncated_4000" / "Validation"
+        return self.data_dir / self.dataset_path / "Validation"
 
     @property
     def sep_token_id(self) -> int:

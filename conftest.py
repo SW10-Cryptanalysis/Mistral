@@ -44,16 +44,24 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=True,
         help="If enabled the model trains with space tokens in the training dataset",
     )
+    parser.addoption(
+        "--dataset-path",
+        type=str,
+        default=None,
+        help="Path to the dataset (e.g., 'tokenized_spaced', 'tokenized_normal_truncated_4000').",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
     """Inject custom flags into sys.argv so argparse in config.py can find them."""
-    for flag, dest in [
-        ("--with-spaces", "with-spaces"),
-    ]:
-        try:
-            value = config.getoption(dest)
-        except ValueError:
-            value = None
-        if value and flag not in sys.argv:
-            sys.argv.extend([flag, str(value)])
+    # Use the exact flag name strings to avoid ValueError
+    with_spaces = config.getoption("--with-spaces", default=None)
+    dataset_path = config.getoption("--dataset-path", default=None)
+
+    if with_spaces and "--with-spaces" not in sys.argv:
+        sys.argv.append("--with-spaces")
+
+    if dataset_path and "--dataset-path" not in sys.argv:
+        # Strip literal single quotes if they leaked in from addopts
+        clean_path = str(dataset_path).strip("'").strip('"')
+        sys.argv.extend(["--dataset-path", clean_path])
