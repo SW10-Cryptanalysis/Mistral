@@ -7,10 +7,15 @@ from src.config import Config
 
 
 @pytest.fixture
-def dummy_cfg():
+def dummy_cfg(mocker):
     """Provides a small config to test truncations and padding."""
     cfg = Config()
-    cfg.max_context = 5
+    # Fixed namespace: Patch the property directly on the class where it is defined
+    mocker.patch(
+        "src.config.Config.max_context",
+        new_callable=mocker.PropertyMock,
+        return_value=5,
+    )
     cfg.pad_token_id = 0
     return cfg
 
@@ -61,21 +66,38 @@ def test_safe_pad_collate(mocker, dummy_cfg):
     assert collated["attention_mask"][1].tolist() == [1, 0, 0]
 
 
-def test_compute_metrics():
-    logits = np.zeros((2, 4, 50))
+def test_compute_metrics(mocker):
+    # Mock token IDs to guarantee the SEP token is found without requiring metadata.json
+    mocker.patch(
+        "src.config.Config.sep_token_id",
+        new_callable=mocker.PropertyMock,
+        return_value=20,
+    )
+    mocker.patch(
+        "src.config.Config.eos_token_id",
+        new_callable=mocker.PropertyMock,
+        return_value=999,
+    )
 
+    logits = np.zeros((2, 5, 100))
+
+    # Sample 0
     logits[0, 0, 20] = 1
     logits[0, 1, 30] = 1
-    logits[0, 2, 45] = 1
-    logits[0, 3, 0] = 1
+    logits[0, 2, 40] = 1
+    logits[0, 3, 99] = 1  # Intentionally wrong prediction to create 1 error
+    logits[0, 4, 0] = 1
 
+    # Sample 1
     logits[1, 0, 20] = 1
-    logits[1, 1, 49] = 1
+    logits[1, 1, 30] = 1
     logits[1, 2, 40] = 1
     logits[1, 3, 0] = 1
+    logits[1, 4, 0] = 1
 
-    labels = np.array([[10, 20, 30, 40], [10, 20, -100, 40]])
+    labels = np.array([[10, 20, 30, 40, 50], [10, 20, 30, 40, -100]])
 
+    # 5 Valid Output Symbols Expected. Sample 0 will get 1 Error. Total: 1/5 = 0.2
     eval_preds = (logits, labels)
     metrics = train.compute_metrics(eval_preds)
 
@@ -140,8 +162,16 @@ def test_train_use_spaces_enabled(mocker):
 
     spaced_train = Path("spaced/train")
     spaced_val = Path("spaced/val")
-    mocker.patch("src.train.cfg.tokenized_spaced_train_dir", spaced_train)
-    mocker.patch("src.train.cfg.tokenized_spaced_val_dir", spaced_val)
+    mocker.patch(
+        "src.config.Config.tokenized_train_dir",
+        new_callable=mocker.PropertyMock,
+        return_value=spaced_train,
+    )
+    mocker.patch(
+        "src.config.Config.tokenized_val_dir",
+        new_callable=mocker.PropertyMock,
+        return_value=spaced_val,
+    )
 
     mocker.patch("src.train.get_model")
     mock_ds_class = mocker.patch("src.train.PretokenizedCipherDataset")
@@ -170,8 +200,16 @@ def test_train_use_spaces_disabled(mocker):
 
     normal_train = Path("normal/train")
     normal_val = Path("normal/val")
-    mocker.patch("src.train.cfg.tokenized_training_dir", normal_train)
-    mocker.patch("src.train.cfg.tokenized_val_dir", normal_val)
+    mocker.patch(
+        "src.config.Config.tokenized_train_dir",
+        new_callable=mocker.PropertyMock,
+        return_value=normal_train,
+    )
+    mocker.patch(
+        "src.config.Config.tokenized_val_dir",
+        new_callable=mocker.PropertyMock,
+        return_value=normal_val,
+    )
 
     mocker.patch("src.train.get_model")
     mock_ds_class = mocker.patch("src.train.PretokenizedCipherDataset")
