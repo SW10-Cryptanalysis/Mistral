@@ -80,8 +80,8 @@ class Config:
 
     # STEPS
     logging_steps: int = 10
-    save_steps: int = 250
-    eval_steps: int = 1000
+    save_steps: int = 100000
+    eval_steps: int = 25000
     save_total_limit: int = 2
 
     # SYSTEM
