@@ -149,7 +149,7 @@ class Config:
             f"Config initialized: unique_homophones={self.unique_homophones}, sep_token_id={self.sep_token_id}, space_token_id={self.space_token_id}, bos_token_id={self.bos_token_id}, eos_token_id={self.eos_token_id}, char_offset={self.char_offset}, vocab_size={self.vocab_size}",
         )
         logger.info(
-            f"Max len set to {self.max_context} based on use_spaces={self.use_spaces}"
+            f"Max len set to {self.max_context} based on use_spaces={self.use_spaces}",
         )
         logger.info(f"Training directory: {self.tokenized_train_dir}")
         logger.info(f"Validation directory: {self.tokenized_val_dir}")

@@ -4,7 +4,7 @@ from src.config import Config, cfg
 
 def test_config_defaults():
     assert cfg.vocab_size == 2560
-    assert cfg.max_context == 20100
+    assert cfg.max_context == 20136
     assert cfg.pad_token_id == 0
     assert cfg.sep_token_id == 2504
     assert cfg.space_token_id == 2505
@@ -40,20 +40,17 @@ def test_config_defaults():
     assert isinstance(cfg.eval_steps, int)
     assert isinstance(cfg.save_total_limit, int)
     assert isinstance(cfg.output_dir, Path)
-    assert isinstance(cfg.tokenized_training_dir, Path)
-    assert isinstance(cfg.tokenized_test_dir, Path)
+    assert isinstance(cfg.tokenized_train_dir, Path)
     assert isinstance(cfg.tokenized_val_dir, Path)
-    assert isinstance(cfg.tokenized_spaced_train_dir, Path)
-    assert isinstance(cfg.tokenized_spaced_val_dir, Path)
-    assert isinstance(cfg.tokenized_spaced_test_dir, Path)
+    assert isinstance(cfg.final_output_dir, Path)
 
 
 def test_config_paths():
     assert isinstance(cfg.output_dir, Path)
-    assert isinstance(cfg.tokenized_training_dir, Path)
+    assert isinstance(cfg.tokenized_train_dir, Path)
 
     assert cfg.output_dir.name == "outputs"
-    assert "Ciphers" in str(cfg.tokenized_training_dir)
+    assert "Ciphers" in str(cfg.tokenized_train_dir)
 
 
 def test_custom_config_instantiation():

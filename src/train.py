@@ -43,7 +43,7 @@ class HardwareOptimizationCallback(TrainerCallback):
         args: TrainingArguments,
         state: TrainerState,
         control: transformers.TrainerControl,
-        **kwargs,
+        **kwargs,  # noqa
     ) -> None:
         """Log the start time of the epoch."""
         self.epoch_start_time = time.time()
@@ -56,7 +56,7 @@ class HardwareOptimizationCallback(TrainerCallback):
         args: TrainingArguments,
         state: TrainerState,
         control: transformers.TrainerControl,
-        **kwargs,
+        **kwargs,  # noqa
     ) -> None:
         """Log performance metrics at the end of the epoch."""
         epoch_time = time.time() - self.epoch_start_time
