@@ -14,29 +14,19 @@ logger.addHandler(handler)
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument(
-    "--without-spaces",
+    "--with-spaces",
     action="store_true",
-    default=False,
-    help="If enabled the model trains without space tokens in the training dataset",
+    default=True,
+    help="If enabled the model trains with space tokens in the training dataset",
 )
 cli_args, _ = parser.parse_known_args()
 
-TEXT_LEN = 9961
-TOTAL_SEQ = TEXT_LEN * 2
-BUFFER = 178
-UNIQUE_HOMOPHONE_COUNT = 2503
+MAX_PLAIN_SPACES = 13077
+MAX_PLAIN_NORMAL = 10063
 
 DATA_DIR = Path(__file__).parent.parent.parent / "Ciphers"
 OUTPUT_DIR = Path(__file__).parent.parent / "outputs"
 HOMOPHONE_FILE = "metadata.json"
-
-TOKENIZED_TRAINING_DIR = DATA_DIR / "tokenized_normal" / "Training"
-TOKENIZED_VALIDATION_DIR = DATA_DIR / "tokenized_normal" / "Validation"
-TOKENIZED_TEST_DIR = DATA_DIR / "tokenized_normal" / "Test"
-
-TOKENIZED_SPACED_TRAINING_DIR = DATA_DIR / "tokenized_spaced" / "Training"
-TOKENIZED_SPACED_VALIDATION_DIR = DATA_DIR / "tokenized_spaced" / "Validation"
-TOKENIZED_SPACED_TEST_DIR = DATA_DIR / "tokenized_spaced" / "Test"
 
 
 @dataclass
@@ -44,12 +34,10 @@ class Config:
     """Centralized model, data, and training configuration values."""
 
     # ARCHITECTURE
-    unique_homophones: int = UNIQUE_HOMOPHONE_COUNT
+    buffer: int = 10
     unique_letters: int = 26
-    vocab_size: int = (
-        2560  # Padded to nearest multiple of 64 for L4 Ada Lovelace Tensor Cores
-    )
-    max_context: int = TOTAL_SEQ + BUFFER  # 20100 exactly
+    unique_homophones: int = 0
+    vocab_size: int = 0
 
     # Mistral Specific Hyperparameters
     hidden_size: int = 512
@@ -68,7 +56,7 @@ class Config:
     grad_checkpoint: bool = True
     torch_compile: bool = False
     bf16: bool = True
-    use_spaces: bool = not cli_args.without_spaces
+    use_spaces: bool = not cli_args.with_spaces
 
     # STEPS
     logging_steps: int = 10
@@ -78,16 +66,35 @@ class Config:
 
     # SYSTEM
     output_dir: Path = OUTPUT_DIR
-    tokenized_training_dir: Path = TOKENIZED_TRAINING_DIR
-    tokenized_val_dir: Path = TOKENIZED_VALIDATION_DIR
-    tokenized_test_dir: Path = TOKENIZED_TEST_DIR
-
-    tokenized_spaced_train_dir: Path = TOKENIZED_SPACED_TRAINING_DIR
-    tokenized_spaced_val_dir: Path = TOKENIZED_SPACED_VALIDATION_DIR
-    tokenized_spaced_test_dir: Path = TOKENIZED_SPACED_TEST_DIR
+    data_dir: Path = DATA_DIR
 
     # Token IDs
     pad_token_id: int = 0
+
+    @property
+    def max_context(self) -> int:
+        """Calculate dynamic variables after the dataclass is initialized."""
+        if self.use_spaces:
+            return (MAX_PLAIN_SPACES * 2) + self.buffer
+        return (MAX_PLAIN_NORMAL * 2) + self.buffer
+
+    @property
+    def final_output_dir(self) -> Path:
+        """Return the output directory path for saving fine-tuned models, differentiated by space token usage."""
+        suffix = "spaces" if self.use_spaces else "normal"
+        return self.output_dir / suffix / "_truncated_4000"
+
+    @property
+    def tokenized_train_dir(self) -> Path:
+        """Path for tokenized training data."""
+        suffix = "spaced" if self.use_spaces else "normal"
+        return self.data_dir / f"tokenized_{suffix}_truncated_4000" / "Training"
+
+    @property
+    def tokenized_val_dir(self) -> Path:
+        """Path for tokenized validation data."""
+        suffix = "spaced" if self.use_spaces else "normal"
+        return self.data_dir / f"tokenized_{suffix}_truncated_4000" / "Validation"
 
     @property
     def sep_token_id(self) -> int:
@@ -117,24 +124,36 @@ class Config:
     def load_homophones(self) -> None:
         """Load homophone mappings from the metadata file."""
         homophone_path = os.path.join(DATA_DIR, HOMOPHONE_FILE)
-        if os.path.exists(homophone_path):
-            try:
-                with open(homophone_path) as f:
-                    meta = json.load(f)
-                    self.unique_homophones = int(meta["max_symbol_id"])
-            except OSError as e:
-                logger.warning("Could not read file: %s", HOMOPHONE_FILE)
-                logger.warning("Using default value: %d", self.unique_homophones)
-                logger.warning("Error details: %s", str(e))
-            except (ValueError, KeyError) as e:
-                logger.warning("Invalid or missing data in: %s", HOMOPHONE_FILE)
-                logger.warning("Using default value: %d", self.unique_homophones)
-                logger.warning("Error details: %s", str(e))
+        if not os.path.exists(homophone_path):
+            raise FileNotFoundError(
+                f"Metadata file not found at: {homophone_path}. "
+                "Cannot determine unique_homophones — aborting.",
+                1,
+            )
+        try:
+            with open(homophone_path) as f:
+                meta = json.load(f)
+                self.unique_homophones = int(meta["max_symbol_id"])
+        except OSError as e:
+            raise OSError(f"Could not read file: {homophone_path}") from e
+        except (ValueError, KeyError) as e:
+            raise ValueError(
+                f"Invalid or missing 'max_symbol_id' in {homophone_path}",
+            ) from e
 
-        raw = self.unique_homophones + self.unique_letters + BUFFER
+        raw = self.unique_homophones + self.unique_letters + self.buffer
         self.vocab_size = (
             (raw + 63) // 64 * 64
         )  # Padded to nearest multiple of 64 for L4 Ada Lovelace Tensor Cores
+        logger.info(
+            f"Config initialized: unique_homophones={self.unique_homophones}, sep_token_id={self.sep_token_id}, space_token_id={self.space_token_id}, bos_token_id={self.bos_token_id}, eos_token_id={self.eos_token_id}, char_offset={self.char_offset}, vocab_size={self.vocab_size}",
+        )
+        logger.info(
+            f"Max len set to {self.max_context} based on use_spaces={self.use_spaces}",
+        )
+        logger.info(f"Training directory: {self.tokenized_train_dir}")
+        logger.info(f"Validation directory: {self.tokenized_val_dir}")
 
 
 cfg = Config()
+cfg.load_homophones()

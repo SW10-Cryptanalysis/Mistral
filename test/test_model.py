@@ -6,6 +6,7 @@ from transformers import MistralConfig, MistralForCausalLM
 from src import model
 from src.config import Config
 
+
 @pytest.fixture
 def tiny_cfg():
     """Provides a microscopic model config to keep tests fast and CPU-friendly."""
@@ -16,7 +17,9 @@ def tiny_cfg():
     cfg.num_hidden_layers = 2
     cfg.num_attention_heads = 4
     cfg.num_key_value_heads = 1
+    cfg.bf16 = False  # Explicitly disable bfloat16 for testing the dtype assert
     return cfg
+
 
 def test_apply_custom_initialization(tiny_cfg):
     hf_config = MistralConfig(
@@ -40,6 +43,7 @@ def test_apply_custom_initialization(tiny_cfg):
 
     assert (expected_scaled_std * 0.5) < down_proj_std < (expected_scaled_std * 1.5)
 
+
 def test_get_model_sdpa_fallback(mocker, tiny_cfg):
     mock_cuda = mocker.patch("src.model.torch.cuda.is_available")
     mock_cuda.return_value = False
@@ -48,9 +52,14 @@ def test_get_model_sdpa_fallback(mocker, tiny_cfg):
 
     test_model = model.get_model()
 
-    attn_impl = getattr(test_model.config, "_attn_implementation", getattr(test_model.config, "attn_implementation", None))
+    attn_impl = getattr(
+        test_model.config,
+        "_attn_implementation",
+        getattr(test_model.config, "attn_implementation", None),
+    )
     assert attn_impl == "sdpa"
     assert test_model.dtype == torch.float32
+
 
 def test_get_model_flash_attention(mocker, tiny_cfg):
     mock_cuda = mocker.patch("src.model.torch.cuda.is_available")
@@ -68,5 +77,9 @@ def test_get_model_flash_attention(mocker, tiny_cfg):
     model.get_model()
 
     called_config = mock_mistral_cls.call_args[0][0]
-    attn_impl = getattr(called_config, "_attn_implementation", getattr(called_config, "attn_implementation", None))
+    attn_impl = getattr(
+        called_config,
+        "_attn_implementation",
+        getattr(called_config, "attn_implementation", None),
+    )
     assert attn_impl == "flash_attention_2"
