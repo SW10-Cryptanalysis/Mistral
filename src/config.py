@@ -72,7 +72,7 @@ class Config:
     batch_size: int = 16
     grad_accum: int = 1
     learning_rate: float = 3e-4
-    epochs: int = 5
+    epochs: int = 3
     grad_checkpoint: bool = True
     torch_compile: bool = True
     bf16: bool = True
@@ -80,8 +80,8 @@ class Config:
 
     # STEPS
     logging_steps: int = 10
-    save_steps: int = 100000
-    eval_steps: int = 25000
+    save_steps: int = 30000
+    eval_steps: int = 20000
     save_total_limit: int = 2
 
     # SYSTEM
